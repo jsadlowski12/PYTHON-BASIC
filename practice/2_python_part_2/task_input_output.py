@@ -15,9 +15,26 @@ Examples:
     No numbers entered
 
 """
+from lib2to3.pgen2.token import NUMBER
 
 
 def read_numbers(n: int) -> str:
-    ...
+    total = 0
+    count = 0
 
+    for _ in range(n):
+        user_input = input()
+
+        try:
+            number = float(user_input)
+            total += number
+            count += 1
+        except ValueError:
+            continue
+
+    if count == 0:
+        return "No numbers entered"
+
+    average = round(total / count, 2)
+    return f"Avg: {average}"
 
