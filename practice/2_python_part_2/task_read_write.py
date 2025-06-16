@@ -13,3 +13,23 @@ Example:
 
     result.txt(content: "23, 78, 3")
 """
+from fileinput import filename
+
+
+def read_files(file_paths: list[str]):
+    result = []
+    for file_path in file_paths:
+        try:
+            with open(file_path, 'r') as content:
+                result.append(content.read())
+        except FileNotFoundError:
+            print(f"Missing file: {file_path}")
+    return result
+
+def write_to_file(filename: str, content: list[str]):
+    with open(filename, 'w') as file:
+        file.write(','.join(map(str, content)))
+
+if __name__ == "__main__":
+    content = read_files(["./files/file_1.txt", "./files/file_2.txt"])
+    write_to_file("result.txt", content)
