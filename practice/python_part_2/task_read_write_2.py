@@ -28,11 +28,11 @@ def generate_words(n=20):
 
     return words
 
-def write_to_file_in_utf8_encoding(filename: str, content: list[str]):
+def write_to_file_in_utf8_encoding(filename: str, content: list[str]) -> None:
     with open(filename, 'w', encoding='utf8') as file:
         file.write('\\n'.join(map(str, content)))
 
-def write_to_file_in_cp1252_encoding(filename: str, content: list[str]):
+def write_to_file_in_cp1252_encoding(filename: str, content: list[str]) -> None:
     with open(filename, 'w', encoding='cp1252') as file:
         file.write(','.join(map(str, content)))
 
