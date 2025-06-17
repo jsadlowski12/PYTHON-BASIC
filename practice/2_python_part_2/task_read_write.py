@@ -14,7 +14,7 @@ Example:
     result.txt(content: "23, 78, 3")
 """
 from fileinput import filename
-
+import os
 
 def read_files(file_paths: list[str]):
     result = []
@@ -31,5 +31,12 @@ def write_to_file(filename: str, content: list[str]):
         file.write(','.join(map(str, content)))
 
 if __name__ == "__main__":
-    content = read_files(["./files/file_1.txt", "./files/file_2.txt"])
+    folder_path = './files'
+
+    files = os.listdir(folder_path)
+
+    file_paths = [os.path.join(folder_path, file)
+                  for file in files if os.path.isfile(os.path.join(folder_path, file))]
+
+    content = read_files(file_paths)
     write_to_file("result.txt", content)

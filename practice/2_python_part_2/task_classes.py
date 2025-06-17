@@ -29,16 +29,16 @@ from datetime import datetime, timedelta
 
 
 class Teacher:
-    def __init__(self, last_name, first_name):
+    def __init__(self, last_name: str, first_name: str):
         self.last_name = last_name
         self.first_name = first_name
 
-    def create_homework(self, text, days_to_complete):
+    def create_homework(self, text: str, days_to_complete: int):
         return Homework(text, days_to_complete)
 
 
 class Student:
-    def __init__(self, last_name, first_name):
+    def __init__(self, last_name: str, first_name: str):
         self.last_name = last_name
         self.first_name = first_name
 
@@ -50,7 +50,7 @@ class Student:
             return None
 
 class Homework:
-    def __init__(self, text, days_to_complete):
+    def __init__(self, text: str, days_to_complete: int):
         self.text = text
         self.created = datetime.now()
         self.deadline = self.created + timedelta(days=days_to_complete)
