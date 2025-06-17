@@ -35,8 +35,7 @@ if __name__ == "__main__":
 
     files = os.listdir(folder_path)
 
-    file_paths = [os.path.join(folder_path, file)
-                  for file in files if os.path.isfile(os.path.join(folder_path, file))]
+    file_paths = [os.path.join(folder_path, file) for file in files]
 
     content = read_files(file_paths)
     write_to_file("result.txt", content)
