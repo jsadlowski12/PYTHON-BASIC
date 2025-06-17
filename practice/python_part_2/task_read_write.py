@@ -16,6 +16,9 @@ Example:
 from fileinput import filename
 import os
 
+def get_number(filename: str):
+    return int(filename.split('_')[1].split('.')[0])
+
 def read_files(file_paths: list[str]):
     result = []
     for file_path in file_paths:
@@ -28,14 +31,13 @@ def read_files(file_paths: list[str]):
 
 def write_to_file(filename: str, content: list[str]):
     with open(filename, 'w') as file:
-        file.write(','.join(map(str, content)))
+        file.write(','.join(content))
 
 if __name__ == "__main__":
     folder_path = './files'
 
-    files = os.listdir(folder_path)
+    files = sorted(os.listdir(folder_path), key=get_number)
+    files = [os.path.join(folder_path, filename) for filename in files]
 
-    file_paths = [os.path.join(folder_path, file) for file in files]
-
-    content = read_files(file_paths)
+    content = read_files(files)
     write_to_file("result.txt", content)
