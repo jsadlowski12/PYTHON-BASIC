@@ -3,8 +3,11 @@ Write tests for classes in python_part_2/task_classes.py (Homework, Teacher, Stu
 Check if all methods working correctly.
 Also check corner-cases, for example if homework number of days is negative.
 """
+import io
 from datetime import timedelta
 from unittest import TestCase
+from unittest.mock import patch
+
 from practice.python_part_2.task_classes import Homework, Teacher, Student
 
 class TestClasses(TestCase):
@@ -36,3 +39,9 @@ class TestClasses(TestCase):
         assert homework is not None
         assert homework.text == 'Biology'
         assert homework.deadline == timedelta(days=2)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_do_homework(self, mock_stdout):
+        self.student.do_homework(self.homework_expired)
+        expected_print = 'You are late.\n'
+        assert expected_print == mock_stdout.getvalue()
