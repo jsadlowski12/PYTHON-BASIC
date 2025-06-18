@@ -35,15 +35,7 @@ class Homework:
         self.deadline = self.created + timedelta(days=days_to_complete)
 
     def is_active(self) -> bool:
-        closed = False
-
-        if datetime.now() >= self.deadline:
-            print("Task closed.")
-            closed = True
-        else:
-            print("Task in progress.")
-
-        return closed
+        return datetime.now() < self.deadline
 
 class Teacher:
     def __init__(self, last_name: str, first_name: str):
