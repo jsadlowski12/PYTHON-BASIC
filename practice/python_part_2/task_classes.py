@@ -29,21 +29,21 @@ from datetime import datetime, timedelta
 from typing import Union
 
 class Homework:
-    def __init__(self, text: str, days_to_complete: timedelta):
+    def __init__(self, text: str, deadline: timedelta):
         self.text = text
         self.created = datetime.now()
-        self.deadline = self.created + timedelta(days=days_to_complete.days)
+        self.deadline = deadline
 
     def is_active(self) -> bool:
-        return datetime.now() < self.deadline
+        return datetime.now() < self.created + timedelta(days=self.deadline.days)
 
 class Teacher:
     def __init__(self, last_name: str, first_name: str):
         self.last_name = last_name
         self.first_name = first_name
 
-    def create_homework(self, text: str, days_to_complete: int) -> Homework:
-        return Homework(text, timedelta(days=days_to_complete))
+    def create_homework(self, text: str, deadline: int) -> Homework:
+        return Homework(text, timedelta(days=deadline))
 
 class Student:
     def __init__(self, last_name: str, first_name: str):

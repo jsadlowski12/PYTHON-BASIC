@@ -35,4 +35,4 @@ class TestClasses(TestCase):
 
         assert homework is not None
         assert homework.text == 'Biology'
-        assert homework.deadline == timedelta(2)
+        assert homework.deadline == timedelta(days=2)
