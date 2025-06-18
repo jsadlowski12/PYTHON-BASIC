@@ -21,10 +21,8 @@ def generate_words(n=20):
         word = ''.join(random.choices(string.ascii_lowercase, k=random.randint(3, 10)))
         words.append(word)
 
-    reversed_words = words[::-1]
-
     write_to_file_in_utf8_encoding("file1.txt", words)
-    write_to_file_in_cp1252_encoding("file2.txt", reversed_words)
+    write_to_file_in_cp1252_encoding("file2.txt", words)
 
     return words
 
@@ -33,6 +31,7 @@ def write_to_file_in_utf8_encoding(filename: str, content: list[str]) -> None:
         file.write('\\n'.join(map(str, content)))
 
 def write_to_file_in_cp1252_encoding(filename: str, content: list[str]) -> None:
+    content.reverse()
     with open(filename, 'w', encoding='cp1252') as file:
         file.write(','.join(map(str, content)))
 
