@@ -13,6 +13,9 @@ import pytest
 
 
 def fibonacci_1(n):
+    if n <= 0:
+        return 0
+
     a, b = 0, 1
     for _ in range(n-1):
         a, b = b, a + b
@@ -21,14 +24,29 @@ def fibonacci_1(n):
 
 def fibonacci_2(n):
     fibo = [0, 1]
-    for i in range(1, n+1):
+    for i in range(2, n+1):
         fibo.append(fibo[i-1] + fibo[i-2])
     return fibo[n]
 
-@pytest.mark.parametrize("input,expected_result", [(2, 1)])
+test_cases = [
+    (0, 0),
+    (1, 1),
+    (2, 1),
+    (3, 2),
+    (4, 3),
+    (5, 5),
+    (6, 8),
+    (7, 13),
+    (8, 21),
+    (9, 34),
+    (10, 55),
+    (15, 610)
+]
+
+@pytest.mark.parametrize("input,expected_result", test_cases)
 def test_fibonacci_1(input, expected_result):
     assert fibonacci_1(input) == expected_result
 
-@pytest.mark.parametrize("input,expected_result", [(2, 1)])
+@pytest.mark.parametrize("input,expected_result", test_cases)
 def test_fibonacci_2(input, expected_result):
     assert fibonacci_2(input) == expected_result
