@@ -22,12 +22,16 @@ def print_name_address(args: argparse.Namespace) -> None:
     fake = Faker()
     fields = vars(args)
 
-    for i in range(args.NUMBER):
+    for _ in range(args.NUMBER):
         fake_dict = {}
-        for f, v in fields.items():
-            if f.startswith("--"):
-                fake_dict[f.replace("--", "")] = eval(f"fake.{v}()")
+
+        for field, provider in fields.items():
+            if field.startswith("--"):
+                key = field.replace("--", "")
+                fake_dict[key] = eval(f"fake.{provider}()")
+
         print(fake_dict)
+
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
