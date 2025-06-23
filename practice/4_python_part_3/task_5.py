@@ -6,11 +6,25 @@ Examples:
      200, 'response data'
 """
 from typing import Tuple
-
+from urllib import request, error
+import ssl
+import certifi
 
 def make_request(url: str) -> Tuple[int, str]:
-    ...
+    context = ssl.create_default_context(cafile=certifi.where())
 
+    try:
+        resp = request.urlopen(url, context=context)
+        return resp.code, resp.read().decode(resp.headers.get_content_charset()).encode('utf-8').decode('utf-8')
+
+    except error.HTTPError as e:
+        return e.code, e.read().decode('utf-8')
+    except error.URLError as e:
+        return e.reason.errno, e.reason.strerror
+
+if __name__ == "__main__":
+    result = make_request('https://www.google.com')
+    print(result)
 
 """
 Write test for make_request function
