@@ -11,9 +11,14 @@ Examples:
 """
 import math
 
+class OperationNotFoundException(Exception):
+    pass
 
 def math_calculate(function: str, *args):
-    ...
+    try:
+        return eval(f"math.{function}({','.join([str(arg) for arg in args])})")
+    except AttributeError as ex:
+        raise OperationNotFoundException(ex)
 
 
 """
