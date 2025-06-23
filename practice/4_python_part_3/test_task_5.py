@@ -2,10 +2,6 @@ from unittest.mock import patch, Mock
 from urllib import error
 from task_5 import make_request
 
-class ReasonMock:
-    errno = 1
-    strerror = 'No route to host'
-
 @patch('task_5.request.urlopen')
 def test_successful_request(mock_urlopen):
     mock_resp = Mock()
@@ -18,7 +14,6 @@ def test_successful_request(mock_urlopen):
 
     assert status == 200
     assert content == 'Hello World'
-
 
 @patch('task_5.request.urlopen')
 def test_http_error(mock_urlopen):
@@ -36,7 +31,6 @@ def test_http_error(mock_urlopen):
 
     assert status == 404
     assert content == 'Error page content'
-
 
 @patch('task_5.request.urlopen')
 def test_url_error(mock_urlopen):
