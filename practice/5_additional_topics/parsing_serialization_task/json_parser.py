@@ -1,5 +1,8 @@
 import json
 import os
+import xml.etree.ElementTree as ET
+from datetime import datetime
+import re
 
 def load_all_jsons(root_folder: str) -> dict:
     result = {}
@@ -91,10 +94,94 @@ def analyze_country_weather(data: dict) -> None:
     print(f"Warmest city: {warmest_city} ({city_temps[warmest_city]:.2f}°C)")
     print(f"Windiest city: {windiest_city} ({city_winds[windiest_city]:.2f} m/s)")
 
+def extract_date_from_data(data: dict) -> str:
+    for city_data in data.values():
+        for filename in city_data:
+            try:
+                # Expecting format like "2021_09_25.json"
+                base_name = filename.replace(".json", "")
+                date_obj = datetime.strptime(base_name, "%Y_%m_%d")
+                return date_obj.strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+    return datetime.today().strftime("%Y-%m-%d")  # Fallback
+
+def sanitize_city_name(city_name: str) -> str:
+    sanitized = re.sub(r'[^a-zA-Z0-9_.-]', '_', city_name)
+    if re.match(r'^\d', sanitized):
+        sanitized = "_" + sanitized
+    return sanitized
+
+def write_weather_to_xml(
+    data: dict,
+    country_name: str,
+    output_file: str
+):
+    date_str = extract_date_from_data(data)
+
+    city_data = {}
+    temp_summary = {}
+    wind_summary = {}
+
+    for city, city_files in data.items():
+        mean_temp, min_temp, max_temp = calculate_temperatures_for_city(city_files)
+        mean_wind, min_wind, max_wind = calculate_wind_speed_for_city(city_files)
+
+        city_data[city] = {
+            "mean_temp": mean_temp,
+            "min_temp": min_temp,
+            "max_temp": max_temp,
+            "mean_wind": mean_wind,
+            "min_wind": min_wind,
+            "max_wind": max_wind
+        }
+
+        temp_summary[city] = mean_temp
+        wind_summary[city] = mean_wind
+
+    coldest_city = min(temp_summary, key=temp_summary.get)
+    warmest_city = max(temp_summary, key=temp_summary.get)
+    windiest_city = max(wind_summary, key=wind_summary.get)
+
+    mean_country_temp = round(sum(temp_summary.values()) / len(temp_summary), 2)
+    mean_country_wind = round(sum(wind_summary.values()) / len(wind_summary), 2)
+
+    weather = ET.Element("weather", country=country_name, date=date_str)
+
+    ET.SubElement(
+        weather,
+        "summary",
+        mean_temp=str(mean_country_temp),
+        mean_wind_speed=str(mean_country_wind),
+        coldest_place=coldest_city,
+        warmest_place=warmest_city,
+        windiest_place=windiest_city
+    )
+
+    cities = ET.SubElement(weather, "cities")
+
+    for city, metrics in city_data.items():
+        tag_name = sanitize_city_name(city)
+        ET.SubElement(
+            cities,
+            tag_name,
+            mean_temp=str(metrics["mean_temp"]),
+            mean_wind_speed=str(metrics["mean_wind"]),
+            min_temp=str(metrics["min_temp"]),
+            min_wind_speed=str(metrics["min_wind"]),
+            max_temp=str(metrics["max_temp"]),
+            max_wind_speed=str(metrics["max_wind"]),
+        )
+
+    tree = ET.ElementTree(weather)
+    ET.indent(tree, space="  ", level=0)
+    tree.write(output_file, encoding="utf-8", xml_declaration=True)
+
 
 def main():
     data = load_all_jsons("source_data")
     analyze_country_weather(data)
+    write_weather_to_xml(data, country_name="Spain", output_file="tests/weather_report.xml")
 
 
 if __name__ == "__main__":
