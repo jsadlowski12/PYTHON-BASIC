@@ -62,18 +62,39 @@ def calculate_wind_speed_for_city(data: dict) -> tuple[float, float, float]:
     return mean_wind_speed, min_wind_speed, max_wind_speed
 
 
+def analyze_country_weather(data: dict) -> None:
+    city_temps = {}
+    city_winds = {}
+
+    for city, city_data in data.items():
+        mean_temp, _, _ = calculate_temperatures_for_city(city_data)
+        mean_wind, _, _ = calculate_wind_speed_for_city(city_data)
+
+        city_temps[city] = mean_temp
+        city_winds[city] = mean_wind
+
+    if not city_temps or not city_winds:
+        print("No data available for analysis.")
+        return
+
+    country_mean_temp = round(sum(city_temps.values()) / len(city_temps), 2)
+    country_mean_wind = round(sum(city_winds.values()) / len(city_winds), 2)
+
+    coldest_city = min(city_temps, key=city_temps.get)
+    warmest_city = max(city_temps, key=city_temps.get)
+    windiest_city = max(city_winds, key=city_winds.get)
+
+    print(f"Country-wide mean temperature: {country_mean_temp:.2f}°C")
+    print(f"Country-wide mean wind speed: {country_mean_wind:.2f} m/s\n")
+
+    print(f"Coldest city: {coldest_city} ({city_temps[coldest_city]:.2f}°C)")
+    print(f"Warmest city: {warmest_city} ({city_temps[warmest_city]:.2f}°C)")
+    print(f"Windiest city: {windiest_city} ({city_winds[windiest_city]:.2f} m/s)")
+
 
 def main():
     data = load_all_jsons("source_data")
-    print("Sample file:", data["Madrid"]["2021_09_25.json"])
-
-    mean_temp, min_temp, max_temp = calculate_temperatures_for_city(data["Merida"])
-    print(f"Mean temperature: {mean_temp:.2f}, Min temperature: {min_temp:.2f}, "
-          f"Max temperature: {max_temp:.2f}")
-
-    mean_wind_speed, min_wind_speed, max_wind_speed = calculate_wind_speed_for_city(data["Merida"])
-    print(f"Mean wind speed: {mean_wind_speed:.2f}, "
-          f"Min wind speed: {min_wind_speed:.2f}, Max wind speed: {max_wind_speed:.2f}")
+    analyze_country_weather(data)
 
 
 if __name__ == "__main__":
