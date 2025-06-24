@@ -52,7 +52,7 @@ def extract_date_from_data(data: dict) -> str:
                 return date_obj.strftime("%Y-%m-%d")
             except ValueError:
                 continue
-    return datetime.today().strftime("%Y-%m-%d")
+    raise ValueError("No valid date found in any JSON filename.")
 
 def write_weather_to_xml(data: dict, country_name: str, output_file: str):
     date_str = extract_date_from_data(data)
