@@ -32,3 +32,36 @@ Links:
     - lxml docs: https://lxml.de/
 """
 
+import requests
+from bs4 import BeautifulSoup
+
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+URL = "https://finance.yahoo.com/most-active"
+
+class RequestRefusedException(Exception):
+    pass
+
+def make_request(url: str):
+    page = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+    if page.status_code == 200:
+        return BeautifulSoup(page.content, "html.parser")
+    else:
+        raise RequestRefusedException("Request was refused.")
+
+def get_stocks_codes() -> dict:
+    soup = make_request(URL)
+    rows = soup.find_all("tr", class_="row yf-1570k0a")
+    codes = {}
+
+    for row in rows:
+        code = row.find("span", class_="symbol yf-1jsynna")
+        company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
+        codes[code.text.rstrip()] = company_name.text.rstrip()
+
+    return codes
+
+def main():
+    print(get_stocks_codes())
+
+if __name__ == "__main__":
+    main()
