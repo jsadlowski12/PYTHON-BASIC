@@ -28,25 +28,15 @@ def fibonacci_2(n):
         fibo.append(fibo[i-1] + fibo[i-2])
     return fibo[n]
 
-test_cases = [
-    (0, 0),
-    (1, 1),
-    (2, 1),
-    (3, 2),
-    (4, 3),
-    (5, 5),
-    (6, 8),
-    (7, 13),
-    (8, 21),
-    (9, 34),
-    (10, 55),
-    (15, 610)
-]
+testdata = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
 
-@pytest.mark.parametrize("input,expected_result", test_cases)
+def fibonacci_expected():
+    return list(enumerate(testdata))
+
+@pytest.mark.parametrize("input,expected_result", fibonacci_expected())
 def test_fibonacci_1(input, expected_result):
     assert fibonacci_1(input) == expected_result
 
-@pytest.mark.parametrize("input,expected_result", test_cases)
+@pytest.mark.parametrize("input,expected_result", fibonacci_expected())
 def test_fibonacci_2(input, expected_result):
     assert fibonacci_2(input) == expected_result
