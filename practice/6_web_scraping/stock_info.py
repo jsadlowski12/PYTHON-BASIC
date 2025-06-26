@@ -37,19 +37,12 @@ from bs4 import BeautifulSoup
 
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
 BASE_URL = "https://finance.yahoo.com/most-active"
-DEFAULT_HEADERS = {
-    "User-Agent": USER_AGENT,
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Connection": "keep-alive",
-    "Referer": "https://www.google.com"
-}
 
 class RequestRefusedException(Exception):
     pass
 
 def make_request(url: str):
-    response = requests.get(url, headers=DEFAULT_HEADERS, timeout=15)
+    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
     print(f"Request for {url} => Status {response.status_code}")
 
     if response.status_code == 200:
@@ -59,42 +52,39 @@ def make_request(url: str):
 
 def get_stocks_codes() -> dict:
     soup = make_request(BASE_URL)
-    rows = soup.find_all("tr", class_="row yf-1570k0a")
+    rows = soup.find_all("tr", class_="row yf-ao6als")
     codes = {}
 
     for row in rows:
-        code = row.find("span", class_="symbol yf-1jsynna")
+        code = row.find("span", class_="symbol yf-hwu3c7")
         company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
         codes[code.text.rstrip()] = company_name.text.rstrip()
 
     return codes
 
 def get_data_from_company_profile(codes: dict) -> dict:
-    countries = {}
+    company_data = {
+        "Name": [],
+        "Code": [],
+        "Country": [],
+        "Employees": [],
+        "CEO Name": [],
+        "CEO Age": [],
+    }
 
-    for code in codes:
-        try:
-            soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile/")
-            address_div = soup.find("div", class_="address yf-wxp4ja")
+    for code, name in codes.items():
+        soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile/")
+        print(soup.prettify())
+        address = soup.find("div", class_="address yf-wxp4ja")
+        print(address.text)
+        company_data["Country"].append(address.find_all("div")[-1].text)
 
-            if address_div:
-                all_divs = address_div.find_all("div")
-                if all_divs:
-                    country = all_divs[-1].text.strip()  # Last <div> holds the country
-                    countries[code] = country
-                else:
-                    countries[code] = "N/A"
-            else:
-                countries[code] = "N/A"
-        except Exception as e:
-            print(f"[!] Error fetching country for {code}: {e}")
-            countries[code] = "N/A"
-
-    return countries
+    return company_data
 
 
 def main():
     codes = get_stocks_codes()
+    print(codes)
     print(get_data_from_company_profile(codes))
 
 if __name__ == "__main__":
