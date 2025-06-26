@@ -37,16 +37,9 @@ from bs4 import BeautifulSoup
 import random
 
 USER_AGENTS = [
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.79 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A',
-    'Mozilla/5.0 (iPad; CPU OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5355d Safari/8536.25',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/534.55.3 (KHTML, like Gecko) Version/5.1.3 Safari/534.53.10',
-    'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16',
-    'Mozilla/5.0 (Windows NT 6.0; rv:2.0) Gecko/20100101 Firefox/4.0 Opera 12.14',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0',
-    'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:77.0) Gecko/20100101 Firefox/77.0',
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+    'Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)'
 ]
 
 BASE_URL = "https://finance.yahoo.com/markets/stocks/most-active"
@@ -55,19 +48,19 @@ class RequestRefusedException(Exception):
     pass
 
 def make_request(url: str) -> BeautifulSoup:
+    user_agent = random.choice(USER_AGENTS)
     headers = {
-        "User-Agent": random.choice(USER_AGENTS),
+        "User-Agent": user_agent,
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.google.com/",
         "Connection": "keep-alive"
     }
-
     try:
-        time.sleep(5)
+        time.sleep(2)
+        print(f"Using User-Agent: {user_agent}")
         response = requests.get(url, headers=headers, timeout=15)
-        print(f"URL Requested: {response.url}")
-        print(f"Status Code: {response.status_code}")
-        print(response.text[:500])
+        print(f"Requested URL: {response.url}")
+        print(f"Status code: {response.status_code}")
         response.raise_for_status()
         return BeautifulSoup(response.content, "html.parser")
     except requests.exceptions.HTTPError as e:
@@ -100,9 +93,7 @@ def get_data_from_company_profile(codes: dict) -> dict:
 
     for code, name in codes.items():
         soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile")
-        print(soup.prettify())
         address = soup.find("div", class_="address yf-wxp4ja")
-        print(address.text)
         company_data["Country"].append(address.find_all("div")[-1].text)
 
     return company_data
