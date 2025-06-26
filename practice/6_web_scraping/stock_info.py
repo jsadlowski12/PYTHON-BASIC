@@ -31,24 +31,50 @@ Links:
     - beautiful soup docs: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
     - lxml docs: https://lxml.de/
 """
-
+import time
 import requests
 from bs4 import BeautifulSoup
+import random
 
-USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
-BASE_URL = "https://finance.yahoo.com/most-active"
+USER_AGENTS = [
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.79 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A',
+    'Mozilla/5.0 (iPad; CPU OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5355d Safari/8536.25',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/534.55.3 (KHTML, like Gecko) Version/5.1.3 Safari/534.53.10',
+    'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16',
+    'Mozilla/5.0 (Windows NT 6.0; rv:2.0) Gecko/20100101 Firefox/4.0 Opera 12.14',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:77.0) Gecko/20100101 Firefox/77.0',
+]
+
+BASE_URL = "https://finance.yahoo.com/markets/stocks/most-active"
 
 class RequestRefusedException(Exception):
     pass
 
-def make_request(url: str):
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
-    print(f"Request for {url} => Status {response.status_code}")
+def make_request(url: str) -> BeautifulSoup:
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.google.com/",
+        "Connection": "keep-alive"
+    }
 
-    if response.status_code == 200:
+    try:
+        time.sleep(5)
+        response = requests.get(url, headers=headers, timeout=15)
+        print(f"URL Requested: {response.url}")
+        print(f"Status Code: {response.status_code}")
+        print(response.text[:500])
+        response.raise_for_status()
         return BeautifulSoup(response.content, "html.parser")
-    else:
-        raise RequestRefusedException(f"Request failed with status {response.status_code}")
+    except requests.exceptions.HTTPError as e:
+        raise RequestRefusedException(f"HTTP error: {e}")
+    except requests.exceptions.RequestException as e:
+        raise RequestRefusedException(f"Network error: {e}")
+
 
 def get_stocks_codes() -> dict:
     soup = make_request(BASE_URL)
@@ -73,7 +99,7 @@ def get_data_from_company_profile(codes: dict) -> dict:
     }
 
     for code, name in codes.items():
-        soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile/")
+        soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile")
         print(soup.prettify())
         address = soup.find("div", class_="address yf-wxp4ja")
         print(address.text)
