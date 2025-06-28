@@ -69,38 +69,46 @@ def make_request(url: str) -> BeautifulSoup:
         raise RequestRefusedException(f"Network error: {e}")
 
 
-def get_stocks_codes() -> dict:
+def get_stock_codes() -> dict:
     soup = make_request(BASE_URL)
     rows = soup.find_all("tr", class_="row yf-ao6als")
-    codes = {}
+    stock_codes = {}
 
     for row in rows:
         code = row.find("span", class_="symbol yf-hwu3c7")
         company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
-        codes[code.text.rstrip()] = company_name.text.rstrip()
+        stock_codes[code.text.rstrip()] = company_name.text.rstrip()
 
-    return codes
+    return stock_codes
 
-def get_data_from_company_profile(codes: dict) -> dict:
+def get_data_from_company_profile(stock_codes: dict) -> dict:
     company_data = {
         "Name": [],
         "Code": [],
         "Country": [],
         "Employees": [],
         "CEO Name": [],
-        "CEO Age": [],
+        "CEO Year Born": [],
     }
 
-    for code, name in codes.items():
+    for code, name in stock_codes.items():
         soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile")
+
+        company_data["Name"] = stock_codes[code]
+        company_data["Code"] = code
         address = soup.find("div", class_="address yf-wxp4ja")
         company_data["Country"].append(address.find_all("div")[-1].text)
+
+        employees_count = soup.find("dl", class_="company-stats yf-wxp4ja")
+        company_data["Employees"].append(
+            employees_count.find("strong").text if employees_count and employees_count.find("strong") else "N/A"
+        )
 
     return company_data
 
 
 def main():
-    codes = get_stocks_codes()
+    codes = get_stock_codes()
     print(codes)
     print(get_data_from_company_profile(codes))
 
