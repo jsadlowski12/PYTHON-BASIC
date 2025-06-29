@@ -81,7 +81,7 @@ def get_stock_codes() -> dict:
 
     return stock_codes
 
-def get_data_from_company_profile(stock_codes: dict) -> dict:
+def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
     company_data = {
         "Name": [],
         "Code": [],
@@ -96,6 +96,7 @@ def get_data_from_company_profile(stock_codes: dict) -> dict:
 
         company_data["Name"] = stock_codes[code]
         company_data["Code"] = code
+
         address = soup.find("div", class_="address yf-wxp4ja")
         company_data["Country"].append(address.find_all("div")[-1].text)
 
@@ -104,13 +105,25 @@ def get_data_from_company_profile(stock_codes: dict) -> dict:
             employees_count.find("strong").text if employees_count and employees_count.find("strong") else "N/A"
         )
 
+        employee_table = soup.find("div", class_="table-container yf-mj92za")
+        table_body = employee_table.find("tbody")
+        first_row = table_body.find("tr", class_="yf-mj92za")
+        print(first_row.text)
+        first_row = first_row.find_all("td", class_="yf-mj92za")
+        name = first_row[0].text.strip()
+        year_text = first_row[-1].text.strip()
+        year_born = int(year_text) if year_text.isdigit() else "N/A"
+
+        company_data["CEO Name"].append(name)
+        company_data["CEO Year Born"].append(year_born)
+
     return company_data
 
 
 def main():
     codes = get_stock_codes()
     print(codes)
-    print(get_data_from_company_profile(codes))
+    print(get_youngest_ceo_from_profile_tab(codes))
 
 if __name__ == "__main__":
     main()
