@@ -94,8 +94,8 @@ def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
     for code, name in stock_codes.items():
         soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile")
 
-        company_data["Name"] = stock_codes[code]
-        company_data["Code"] = code
+        company_data["Name"].append(stock_codes[code])
+        company_data["Code"].append(code)
 
         address = soup.find("div", class_="address yf-wxp4ja")
         company_data["Country"].append(address.find_all("div")[-1].text)
