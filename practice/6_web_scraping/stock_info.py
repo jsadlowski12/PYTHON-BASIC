@@ -59,10 +59,10 @@ def make_request(url: str) -> BeautifulSoup:
     }
     try:
         time.sleep(2)
-        print(f"Using User-Agent: {user_agent}")
+        #print(f"Using User-Agent: {user_agent}")
         response = requests.get(url, headers=headers, timeout=15)
-        print(f"Requested URL: {response.url}")
-        print(f"Status code: {response.status_code}")
+        #print(f"Requested URL: {response.url}")
+        #print(f"Status code: {response.status_code}")
         response.raise_for_status()
         return BeautifulSoup(response.content, "html.parser")
     except requests.exceptions.HTTPError as e:
@@ -275,37 +275,37 @@ def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str
         sheet_lines.append(row_line)
 
     sheet_lines.append("")
-    return "\n".join(sheet_lines)
+    return "\n".join(sheet_lines) + "\n"
 
 def main():
     codes = get_stock_codes()
-    # youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
-    #
-    # headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
-    # rows = list(zip(
-    #     youngest_ceos_data["Name"],
-    #     youngest_ceos_data["Code"],
-    #     youngest_ceos_data["Country"],
-    #     youngest_ceos_data["Employees"],
-    #     youngest_ceos_data["CEO Name"],
-    #     youngest_ceos_data["CEO Year Born"],
-    # ))
-    #
-    # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
-    # print(sheet)
+    youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
 
-    # best_statistics = get_stocks_with_best_statistics(codes)
-    #
-    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
-    # rows = list(zip(
-    #     best_statistics["Name"],
-    #     best_statistics["Code"],
-    #     best_statistics["52 Week Change"],
-    #     best_statistics["Total Cash"],
-    # ))
-    #
-    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
-    # print(sheet)
+    headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
+    rows = list(zip(
+        youngest_ceos_data["Name"],
+        youngest_ceos_data["Code"],
+        youngest_ceos_data["Country"],
+        youngest_ceos_data["Employees"],
+        youngest_ceos_data["CEO Name"],
+        youngest_ceos_data["CEO Year Born"],
+    ))
+
+    sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
+    print(sheet)
+
+    best_statistics = get_stocks_with_best_statistics(codes)
+
+    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    rows = list(zip(
+        best_statistics["Name"],
+        best_statistics["Code"],
+        best_statistics["52 Week Change"],
+        best_statistics["Total Cash"],
+    ))
+
+    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    print(sheet)
 
     largest_blackrock_holders = get_largest_blackrock_holds(codes)
 
