@@ -44,6 +44,7 @@ USER_AGENTS = [
 
 MOST_ACTIVE_STOCKS_URL = "https://finance.yahoo.com/markets/stocks/most-active"
 STOCK_PROFILE_URL = "https://finance.yahoo.com/quote/{code}/profile"
+STOCK_STATISTICS_URL = "https://finance.yahoo.com/quote/{code}/key-statistics"
 
 class RequestRefusedException(Exception):
     pass
@@ -81,7 +82,7 @@ def get_stock_codes() -> dict:
 
     return stock_codes
 
-def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
+def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
     all_data = []
 
     for code, name in stock_codes.items():
@@ -114,7 +115,7 @@ def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
     print("CEO Years Born (youngest first):", [entry["CEO Year Born"] for entry in sorted_data])
     youngest_five = sorted_data[:5]
 
-    company_data = {
+    stock_data = {
         "Name": [c["Name"] for c in youngest_five],
         "Code": [c["Code"] for c in youngest_five],
         "Country": [c["Country"] for c in youngest_five],
@@ -123,7 +124,58 @@ def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
         "CEO Year Born": [c["CEO Year Born"] for c in youngest_five],
     }
 
-    return company_data
+    return stock_data
+
+def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
+    all_data = []
+
+    for code, name in stock_codes.items():
+        soup = make_request(STOCK_STATISTICS_URL.format(code=code))
+
+        all_sections = soup.find_all("section", class_="yf-14j5zka")
+        financial_highlights_section = all_sections[0]
+        trading_information_section = all_sections[1]
+
+        financial_highlights_tables = financial_highlights_section.find_all("table", class_="table yf-vaowmx")
+        balance_sheet_table = financial_highlights_tables[-2]
+
+        stock_price_history_table = trading_information_section.find("table", class_="table yf-vaowmx")
+        week_52_change = "N/A"
+        total_cash = "N/A"
+
+        if stock_price_history_table:
+            rows = stock_price_history_table.find_all("tr", class_="row yf-vaowmx")
+            if len(rows) > 1:
+                second_row = rows[1]
+                tds = second_row.find_all("td")
+                if len(tds) > 1:
+                    week_52_change = tds[1].text.strip()
+
+        if balance_sheet_table:
+            rows = balance_sheet_table.find_all("tr", class_="row yf-vaowmx")
+            if len(rows) > 1:
+                first_row = rows[0]
+                tds = first_row.find_all("td")
+                if len(tds) > 1:
+                    total_cash = tds[1].text.strip()
+
+        all_data.append({
+            "Name": name,
+            "Code": code,
+            "52 Week Change": week_52_change,
+            "Total Cash": total_cash
+        })
+
+    top_five = all_data[:5]
+
+    stock_data = {
+        "Name": [c["Name"] for c in top_five],
+        "Code": [c["Code"] for c in top_five],
+        "52 Week Change": [c["52 Week Change"] for c in top_five],
+        "Total Cash": [c["Total Cash"] for c in top_five],
+    }
+
+    return stock_data
 
 
 def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str:
@@ -152,21 +204,22 @@ def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str
 
 def main():
     codes = get_stock_codes()
-    youngest_ceos_data = get_youngest_ceo_from_profile_tab(codes)
+    # youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
+    #
+    # headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
+    # rows = list(zip(
+    #     youngest_ceos_data["Name"],
+    #     youngest_ceos_data["Code"],
+    #     youngest_ceos_data["Country"],
+    #     youngest_ceos_data["Employees"],
+    #     youngest_ceos_data["CEO Name"],
+    #     youngest_ceos_data["CEO Year Born"],
+    # ))
+    #
+    # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
+    # print(sheet)
 
-    headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
-    rows = list(zip(
-        youngest_ceos_data["Name"],
-        youngest_ceos_data["Code"],
-        youngest_ceos_data["Country"],
-        youngest_ceos_data["Employees"],
-        youngest_ceos_data["CEO Name"],
-        youngest_ceos_data["CEO Year Born"],
-    ))
-
-    sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
-    print(sheet)
-
+    print(get_stocks_with_best_statistics(codes))
 
 if __name__ == "__main__":
     main()
