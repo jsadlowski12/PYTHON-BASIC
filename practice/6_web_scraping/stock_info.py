@@ -186,6 +186,21 @@ def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
 
     return stock_data
 
+def parse_value(value_str: str) -> float:
+    try:
+        value_str = value_str.strip('$').upper().replace(',', '')
+        if value_str.endswith('B'):
+            return float(value_str[:-1]) * 1_000_000_000
+        elif value_str.endswith('M'):
+            return float(value_str[:-1]) * 1_000_000
+        elif value_str.endswith('K'):
+            return float(value_str[:-1]) * 1_000
+        else:
+            return float(value_str)
+    except (ValueError, AttributeError, TypeError):
+        return float('-inf')
+
+
 def get_largest_blackrock_holds(stock_codes: dict) -> dict:
     all_data = []
 
@@ -199,40 +214,45 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
         holders_table_body = holders_table.find("tbody")
         rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
 
+        shares = "N/A"
+        date_reported = "N/A"
+        out = "N/A"
+        value = "N/A"
+
         for row in rows:
             columns = row.find_all("td")
             if columns:
                 holder_name = columns[0].text.strip()
                 if holder_name == "BlackRock Inc.":
-
+                    shares = columns[1].text.strip()
+                    date_reported = columns[2].text.strip()
+                    out = columns[3].text.strip()
+                    value = columns[4].text.strip()
                     print("BlackRock Row Found:", [col.text.strip() for col in columns])
                     break
-
-        shares = "N/A"
-        date_reported = "N/A"
-        out = "N/A"
-        value = "N/A"
 
         all_data.append({
             "Name": name,
             "Code": code,
             "Shares": shares,
             "Date Reported": date_reported,
-            "Out": out,
+            "% Out": out,
             "Value": value
         })
 
-    all_data_sorted = sorted(all_data, key=lambda x: parse_percent(x["52 Week Change"]), reverse=True)
-    top_ten = all_data_sorted[:10]
+    sorted_holdings = sorted(all_data, key=lambda h: parse_value(h["Value"]), reverse=True)
+    top_ten = sorted_holdings[:10]
 
-    stock_data = {
+    holds_data = {
         "Name": [c["Name"] for c in top_ten],
         "Code": [c["Code"] for c in top_ten],
-        "52 Week Change": [c["52 Week Change"] for c in top_ten],
-        "Total Cash": [c["Total Cash"] for c in top_ten],
+        "Shares": [c["Shares"] for c in top_ten],
+        "Date Reported": [c["Date Reported"] for c in top_ten],
+        "% Out": [c["% Out"] for c in top_ten],
+        "Value": [c["Value"] for c in top_ten]
     }
 
-    return stock_data
+    return holds_data
 
 def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str:
     col_widths = [len(header) for header in headers]
@@ -275,17 +295,32 @@ def main():
     # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     # print(sheet)
 
-    best_statistics = get_largest_blackrock_holds(codes)
+    # best_statistics = get_stocks_with_best_statistics(codes)
+    #
+    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    # rows = list(zip(
+    #     best_statistics["Name"],
+    #     best_statistics["Code"],
+    #     best_statistics["52 Week Change"],
+    #     best_statistics["Total Cash"],
+    # ))
+    #
+    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    # print(sheet)
 
-    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    largest_blackrock_holders = get_largest_blackrock_holds(codes)
+
+    headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
     rows = list(zip(
-        best_statistics["Name"],
-        best_statistics["Code"],
-        best_statistics["52 Week Change"],
-        best_statistics["Total Cash"],
+        largest_blackrock_holders["Name"],
+        largest_blackrock_holders["Code"],
+        largest_blackrock_holders["Shares"],
+        largest_blackrock_holders["Date Reported"],
+        largest_blackrock_holders["% Out"],
+        largest_blackrock_holders["Value"],
     ))
 
-    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    sheet = generate_sheet("10 largest holds of Blackrock Inc.", headers, rows)
     print(sheet)
 
 if __name__ == "__main__":
