@@ -82,48 +82,90 @@ def get_stock_codes() -> dict:
     return stock_codes
 
 def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
-    company_data = {
-        "Name": [],
-        "Code": [],
-        "Country": [],
-        "Employees": [],
-        "CEO Name": [],
-        "CEO Year Born": [],
-    }
+    all_data = []
 
     for code, name in stock_codes.items():
         soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile")
 
-        company_data["Name"].append(stock_codes[code])
-        company_data["Code"].append(code)
-
-        address = soup.find("div", class_="address yf-wxp4ja")
-        company_data["Country"].append(address.find_all("div")[-1].text)
+        country = soup.find("div", class_="address yf-wxp4ja").find_all("div")[-1].text
 
         employees_count = soup.find("dl", class_="company-stats yf-wxp4ja")
-        company_data["Employees"].append(
-            employees_count.find("strong").text if employees_count and employees_count.find("strong") else "N/A"
-        )
+        employees = employees_count.find("strong").text if employees_count and employees_count.find("strong") else "N/A"
 
         employee_table = soup.find("div", class_="table-container yf-mj92za")
         table_body = employee_table.find("tbody")
         first_row = table_body.find("tr", class_="yf-mj92za")
-        print(first_row.text)
         first_row = first_row.find_all("td", class_="yf-mj92za")
-        name = first_row[0].text.strip()
+        ceo_name = first_row[0].text.strip()
         year_text = first_row[-1].text.strip()
-        year_born = int(year_text) if year_text.isdigit() else "N/A"
+        ceo_year = int(year_text) if year_text.isdigit() else "N/A"
 
-        company_data["CEO Name"].append(name)
-        company_data["CEO Year Born"].append(year_born)
+        if ceo_year != "N/A":
+            all_data.append({
+                "Name": name,
+                "Code": code,
+                "Country": country,
+                "Employees": employees,
+                "CEO Name": ceo_name,
+                "CEO Year Born": ceo_year
+            })
+
+    sorted_data = sorted(all_data, key=lambda x: x["CEO Year Born"], reverse=True)
+    youngest_five = sorted_data[:5]
+
+    company_data = {
+        "Name": [c["Name"] for c in youngest_five],
+        "Code": [c["Code"] for c in youngest_five],
+        "Country": [c["Country"] for c in youngest_five],
+        "Employees": [c["Employees"] for c in youngest_five],
+        "CEO Name": [c["CEO Name"] for c in youngest_five],
+        "CEO Year Born": [c["CEO Year Born"] for c in youngest_five],
+    }
 
     return company_data
 
 
+def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str:
+    col_widths = [len(header) for header in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(str(cell)))
+
+    total_width = sum(col_widths) + 3 * len(headers) + 1
+    sheet_lines = []
+
+    centered_title = f" {title} ".center(total_width, "=")
+    sheet_lines.append(centered_title)
+
+    header_line = "| " + " | ".join(f"{headers[i].ljust(col_widths[i])}" for i in range(len(headers))) + " |"
+    sheet_lines.append(header_line)
+
+    sheet_lines.append("-" * len(header_line))
+
+    for row in rows:
+        row_line = "| " + " | ".join(f"{str(row[i]).ljust(col_widths[i])}" for i in range(len(headers))) + " |"
+        sheet_lines.append(row_line)
+
+    sheet_lines.append("")
+    return "\n".join(sheet_lines)
+
 def main():
     codes = get_stock_codes()
-    print(codes)
-    print(get_youngest_ceo_from_profile_tab(codes))
+    youngest_ceos_data = get_youngest_ceo_from_profile_tab(codes)
+
+    headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
+    rows = list(zip(
+        youngest_ceos_data["Name"],
+        youngest_ceos_data["Code"],
+        youngest_ceos_data["Country"],
+        youngest_ceos_data["Employees"],
+        youngest_ceos_data["CEO Name"],
+        youngest_ceos_data["CEO Year Born"],
+    ))
+
+    sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
+    print(sheet)
+
 
 if __name__ == "__main__":
     main()
