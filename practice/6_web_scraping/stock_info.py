@@ -209,7 +209,6 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
 
         top_institutional_holders_section = soup.find("section",
                                                       attrs={"data-testid": "holders-top-institutional-holders"})
-
         holders_table = top_institutional_holders_section.find("table", class_="yf-idy1mk")
         holders_table_body = holders_table.find("tbody")
         rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
@@ -223,12 +222,11 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
             columns = row.find_all("td")
             if columns:
                 holder_name = columns[0].text.strip()
-                if holder_name == "BlackRock Inc.":
+                if holder_name == "Blackrock Inc.":
                     shares = columns[1].text.strip()
                     date_reported = columns[2].text.strip()
                     out = columns[3].text.strip()
                     value = columns[4].text.strip()
-                    print("BlackRock Row Found:", [col.text.strip() for col in columns])
                     break
 
         all_data.append({
