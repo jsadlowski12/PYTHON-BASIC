@@ -43,8 +43,9 @@ USER_AGENTS = [
 ]
 
 MOST_ACTIVE_STOCKS_URL = "https://finance.yahoo.com/markets/stocks/most-active"
-STOCK_PROFILE_URL = "https://finance.yahoo.com/quote/{code}/profile"
-STOCK_STATISTICS_URL = "https://finance.yahoo.com/quote/{code}/key-statistics"
+STOCK_PROFILE_TAB_URL = "https://finance.yahoo.com/quote/{code}/profile"
+STOCK_STATISTICS_TAB_URL = "https://finance.yahoo.com/quote/{code}/key-statistics"
+STOCK_HOLDERS_TAB_URL = "https://finance.yahoo.com/quote/{code}/holders"
 
 class RequestRefusedException(Exception):
     pass
@@ -86,7 +87,7 @@ def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
     all_data = []
 
     for code, name in stock_codes.items():
-        soup = make_request(STOCK_PROFILE_URL.format(code=code))
+        soup = make_request(STOCK_PROFILE_TAB_URL.format(code=code))
 
         country = soup.find("div", class_="address yf-wxp4ja").find_all("div")[-1].text
 
@@ -137,7 +138,7 @@ def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
     all_data = []
 
     for code, name in stock_codes.items():
-        soup = make_request(STOCK_STATISTICS_URL.format(code=code))
+        soup = make_request(STOCK_STATISTICS_TAB_URL.format(code=code))
 
         all_sections = soup.find_all("section", class_="yf-14j5zka")
         financial_highlights_section = all_sections[0]
@@ -185,6 +186,53 @@ def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
 
     return stock_data
 
+def get_largest_blackrock_holds(stock_codes: dict) -> dict:
+    all_data = []
+
+    for code, name in stock_codes.items():
+        soup = make_request(STOCK_HOLDERS_TAB_URL.format(code=code))
+
+        top_institutional_holders_section = soup.find("section",
+                                                      attrs={"data-testid": "holders-top-institutional-holders"})
+
+        holders_table = top_institutional_holders_section.find("table", class_="yf-idy1mk")
+        holders_table_body = holders_table.find("tbody")
+        rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
+
+        for row in rows:
+            columns = row.find_all("td")
+            if columns:
+                holder_name = columns[0].text.strip()
+                if holder_name == "BlackRock Inc.":
+
+                    print("BlackRock Row Found:", [col.text.strip() for col in columns])
+                    break
+
+        shares = "N/A"
+        date_reported = "N/A"
+        out = "N/A"
+        value = "N/A"
+
+        all_data.append({
+            "Name": name,
+            "Code": code,
+            "Shares": shares,
+            "Date Reported": date_reported,
+            "Out": out,
+            "Value": value
+        })
+
+    all_data_sorted = sorted(all_data, key=lambda x: parse_percent(x["52 Week Change"]), reverse=True)
+    top_ten = all_data_sorted[:10]
+
+    stock_data = {
+        "Name": [c["Name"] for c in top_ten],
+        "Code": [c["Code"] for c in top_ten],
+        "52 Week Change": [c["52 Week Change"] for c in top_ten],
+        "Total Cash": [c["Total Cash"] for c in top_ten],
+    }
+
+    return stock_data
 
 def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str:
     col_widths = [len(header) for header in headers]
@@ -227,7 +275,7 @@ def main():
     # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     # print(sheet)
 
-    best_statistics = get_stocks_with_best_statistics(codes)
+    best_statistics = get_largest_blackrock_holds(codes)
 
     headers = ["Name", "Code", "52-Week Change", "Total Cash"]
     rows = list(zip(
