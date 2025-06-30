@@ -42,7 +42,8 @@ USER_AGENTS = [
     'Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)'
 ]
 
-BASE_URL = "https://finance.yahoo.com/markets/stocks/most-active"
+MOST_ACTIVE_STOCKS_URL = "https://finance.yahoo.com/markets/stocks/most-active"
+STOCK_PROFILE_URL = "https://finance.yahoo.com/quote/{code}/profile"
 
 class RequestRefusedException(Exception):
     pass
@@ -52,7 +53,6 @@ def make_request(url: str) -> BeautifulSoup:
     headers = {
         "User-Agent": user_agent,
         "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.google.com/",
         "Connection": "keep-alive"
     }
     try:
@@ -70,7 +70,7 @@ def make_request(url: str) -> BeautifulSoup:
 
 
 def get_stock_codes() -> dict:
-    soup = make_request(BASE_URL)
+    soup = make_request(MOST_ACTIVE_STOCKS_URL)
     rows = soup.find_all("tr", class_="row yf-ao6als")
     stock_codes = {}
 
@@ -85,7 +85,7 @@ def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
     all_data = []
 
     for code, name in stock_codes.items():
-        soup = make_request(f"https://finance.yahoo.com/quote/{code}/profile")
+        soup = make_request(STOCK_PROFILE_URL.format(code=code))
 
         country = soup.find("div", class_="address yf-wxp4ja").find_all("div")[-1].text
 
@@ -111,6 +111,7 @@ def get_youngest_ceo_from_profile_tab(stock_codes: dict) -> dict:
             })
 
     sorted_data = sorted(all_data, key=lambda x: x["CEO Year Born"], reverse=True)
+    print("CEO Years Born (youngest first):", [entry["CEO Year Born"] for entry in sorted_data])
     youngest_five = sorted_data[:5]
 
     company_data = {
