@@ -126,6 +126,13 @@ def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
 
     return stock_data
 
+def parse_percent(pct_str: str) -> float:
+    try:
+        return float(pct_str.strip('%').replace(',', ''))
+    except (AttributeError, ValueError, TypeError):
+        return float('-inf')
+
+
 def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
     all_data = []
 
@@ -166,13 +173,14 @@ def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
             "Total Cash": total_cash
         })
 
-    top_five = all_data[:5]
+    all_data_sorted = sorted(all_data, key=lambda x: parse_percent(x["52 Week Change"]), reverse=True)
+    top_ten = all_data_sorted[:10]
 
     stock_data = {
-        "Name": [c["Name"] for c in top_five],
-        "Code": [c["Code"] for c in top_five],
-        "52 Week Change": [c["52 Week Change"] for c in top_five],
-        "Total Cash": [c["Total Cash"] for c in top_five],
+        "Name": [c["Name"] for c in top_ten],
+        "Code": [c["Code"] for c in top_ten],
+        "52 Week Change": [c["52 Week Change"] for c in top_ten],
+        "Total Cash": [c["Total Cash"] for c in top_ten],
     }
 
     return stock_data
@@ -219,7 +227,18 @@ def main():
     # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     # print(sheet)
 
-    print(get_stocks_with_best_statistics(codes))
+    best_statistics = get_stocks_with_best_statistics(codes)
+
+    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    rows = list(zip(
+        best_statistics["Name"],
+        best_statistics["Code"],
+        best_statistics["52 Week Change"],
+        best_statistics["Total Cash"],
+    ))
+
+    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    print(sheet)
 
 if __name__ == "__main__":
     main()
