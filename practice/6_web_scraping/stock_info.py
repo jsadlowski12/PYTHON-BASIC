@@ -222,7 +222,8 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
             columns = row.find_all("td")
             if columns:
                 holder_name = columns[0].text.strip()
-                if holder_name == "Blackrock Inc.":
+                holder_normalised = " ".join(holder_name.split()).lower()
+                if holder_normalised == "blackrock inc.":
                     shares = columns[1].text.strip()
                     date_reported = columns[2].text.strip()
                     out = columns[3].text.strip()
