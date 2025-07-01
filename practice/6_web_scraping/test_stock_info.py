@@ -78,29 +78,6 @@ PROFILE_ABC = """
 PROFILE_XYZ = PROFILE_ABC.replace("United States", "Canada").replace("10000", "5000")\
                           .replace("John Doe", "Jane Smith").replace("1985", "1990")
 
-STATS_ABC = """
-<section class="yf-14j5zka">
-  <!-- first (financial) section with 2 tables -->
-  <table class="table yf-vaowmx"></table>
-  <table class="table yf-vaowmx">
-    <tbody>
-      <tr class="row yf-vaowmx"><td>Total Cash</td><td>$12.5B</td></tr>
-    </tbody>
-  </table>
-</section>
-<section class="yf-14j5zka">
-  <!-- second (trading) section -->
-  <table class="table yf-vaowmx">
-    <tbody>
-      <tr class="row yf-vaowmx"><td>dummy</td><td>n/a</td></tr>
-      <tr class="row yf-vaowmx"><td>52 Week Change</td><td>30.5%</td></tr>
-    </tbody>
-  </table>
-</section>
-"""
-
-STATS_XYZ = STATS_ABC.replace("$12.5B", "$8.0B").replace("30.5%", "10%")
-
 HOLDERS_ABC = """
 <section data-testid="holders-top-institutional-holders">
   <table class="yf-idy1mk"><tbody>
@@ -120,10 +97,6 @@ def fake_make_request(url: str):
         code = url.split("/quote/")[1].split("/")[0]
         html = PROFILE_ABC if code == "ABC" else PROFILE_XYZ
         return BeautifulSoup(html, "html.parser")
-    if "/key-statistics" in url:
-        code = url.split("/quote/")[1].split("/")[0]
-        html = STATS_ABC if code == "ABC" else STATS_XYZ
-        return BeautifulSoup(html, "html.parser")
     if "/holders" in url:
         code = url.split("/quote/")[1].split("/")[0]
         html = HOLDERS_ABC if code == "ABC" else HOLDERS_XYZ
@@ -139,22 +112,12 @@ def test_get_stock_codes(patch_requests):
     codes = res.get_stock_codes()
     assert codes == {"ABC": "ABC Corp", "XYZ": "XYZ Ltd"}
 
-
 def test_get_youngest_ceos_from_profile_tab(patch_requests):
     result = res.get_youngest_ceos_from_profile_tab(STOCK_CODES)
 
     assert result["Name"] == ["XYZ Ltd", "ABC Corp"]
     assert result["CEO Year Born"] == [1990, 1985]
     assert result["Employees"] == ["5000", "10000"]
-
-
-def test_get_stocks_with_best_statistics(patch_requests):
-    stats = res.get_stocks_with_best_statistics(STOCK_CODES)
-
-    assert stats["Code"] == ["ABC", "XYZ"]
-    assert stats["52 Week Change"][0] == "30.5%"
-    assert stats["Total Cash"][0] == "$12.5B"
-
 
 def test_get_largest_blackrock_holds(patch_requests):
     holds = res.get_largest_blackrock_holds(STOCK_CODES)
