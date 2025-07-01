@@ -17,39 +17,38 @@ Example:
 import argparse
 from faker import Faker
 
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("NUMBER", type=int, help="How many fake records to generate.")
+
+    args, extras = parser.parse_known_args()
+
+    for item in extras:
+        if "=" in item:
+            field, provider = item.split("=", 1)
+            setattr(args, field, provider)
+
+    return args
+
 
 def print_name_address(args: argparse.Namespace) -> None:
     fake = Faker()
     fields = vars(args)
 
     for _ in range(args.NUMBER):
-        fake_dict = {}
+        result = {}
 
-        for field, provider in fields.items():
-            if field.startswith("--"):
-                key = field.replace("--", "")
-                fake_dict[key] = eval(f"fake.{provider}()")
+        for key, value in fields.items():
+            if key.startswith("--"):
+                clean_key = key[2:]
+                fake_data = getattr(fake, value)()
+                result[clean_key] = fake_data
 
-        print(fake_dict)
+        print(result)
 
-
-def get_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('NUMBER', type=int)
-    parser.add_argument('--FIELD=PROVIDER', type=str, nargs="+")
-
-    known_args, keys_vals = parser.parse_known_args()
-
-    for kv in keys_vals:
-        key, value = kv.split("=")
-        setattr(known_args, key, value)
-
-    return known_args
-
-
-if __name__ == '__main__':
-    parsed_args = get_args()
-    print_name_address(parsed_args)
+if __name__ == "__main__":
+    args = get_args()
+    print_name_address(args)
 
 """
 Write test for print_name_address function
