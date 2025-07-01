@@ -17,38 +17,39 @@ Example:
 import argparse
 from faker import Faker
 
-def get_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("NUMBER", type=int, help="How many fake records to generate.")
+def parse_command_line() -> argparse.Namespace:
+    argument_parser = argparse.ArgumentParser()
+    argument_parser.add_argument("NUMBER", type=int, help="How many fake records to generate.")
+    argument_parser.add_argument('--FIELD=PROVIDER', type=str, nargs="+")
 
-    args, extras = parser.parse_known_args()
+    parsed_args, remaining_args = argument_parser.parse_known_args()
 
-    for item in extras:
-        if "=" in item:
-            field, provider = item.split("=", 1)
-            setattr(args, field, provider)
+    for argument in remaining_args:
+        if "=" in argument:
+            field_name, provider_name = argument.split("=", 1)
+            setattr(parsed_args, field_name, provider_name)
 
-    return args
+    return parsed_args
 
 
 def print_name_address(args: argparse.Namespace) -> None:
-    fake = Faker()
-    fields = vars(args)
+    faker_instance = Faker()
+    argument_dict = vars(args)
 
-    for _ in range(args.NUMBER):
-        result = {}
+    for record_number in range(args.NUMBER):
+        fake_record = {}
 
-        for key, value in fields.items():
-            if key.startswith("--"):
-                clean_key = key[2:]
-                fake_data = getattr(fake, value)()
-                result[clean_key] = fake_data
+        for field_key, provider_value in argument_dict.items():
+            if field_key.startswith("--"):
+                sanitized_key = field_key[2:]
+                generated_data = getattr(faker_instance, provider_value)()
+                fake_record[sanitized_key] = generated_data
 
-        print(result)
+        print(fake_record)
 
 if __name__ == "__main__":
-    args = get_args()
-    print_name_address(args)
+    command_args = parse_command_line()
+    print_name_address(command_args)
 
 """
 Write test for print_name_address function
