@@ -10,16 +10,4 @@ from typing import List
 
 
 def calculate_power_with_difference(ints: List[int]) -> List[int]:
-    result = []
-
-    for idx, val in enumerate(ints):
-        power = val ** 2
-        if idx == 0:
-            result.append(power)
-        else:
-            prev_val = ints[idx - 1]
-            prev_power = prev_val ** 2
-            adjusted = power - (prev_power - prev_val)
-            result.append(adjusted)
-
-    return result
+    ...
