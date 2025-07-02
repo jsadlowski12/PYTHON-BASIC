@@ -1,17 +1,18 @@
 import argparse
 import logging
 import sys
-from argparse import ArgumentParser
 import os
 
 
-def create_parser():
-    parser = ArgumentParser(prog='magicgenerator',
+def create_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog='magicgenerator',
                             description='A console utility for generating test data based on data schema',
                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('--path_to_save_files', help='Path to where the files are saved.')
-    parser.add_argument('--files_count', type=int, help='How many JSON files to generate')
+    parser.add_argument('--files_count', type=int, help='How many JSON files to generate. '
+                                                        'Count must be greater or equal to 0. '
+                                                        'If equal to 0 the output will be printed to console.')
     parser.add_argument('--file_name',
                         help='Base file_name. If there is no prefix, the final file name will be file_name.json. '
                              'With prefix full file name will be file_name_file_prefix.json')
@@ -33,7 +34,7 @@ def create_parser():
 
     return parser
 
-def validate_path_to_save_files(path_input):
+def validate_path_to_save_files(path_input: str) -> str:
     if not path_input:
         logging.error("path_to_save_files is required")
         sys.exit(1)
@@ -60,15 +61,36 @@ def validate_path_to_save_files(path_input):
 
     return absolute_path
 
+def validate_files_count(files_count: int) -> int:
+    if files_count is None:
+        logging.error("files_count is required. For more information type the command with --help argument")
+        sys.exit(1)
 
+    if files_count < 0:
+        logging.error(f"files_count can't be a negative number: {files_count}. "
+                      f"Check --help for more information about expected value.")
+        sys.exit(1)
 
-def generate_data():
-    pass
+    return files_count
+
+def validate_all_arguments(args: argparse.Namespace) -> dict:
+    validated_path = validate_path_to_save_files(args.path_to_save_files)
+    logging.info(f"Provided path: {validated_path} meets the expected criteria")
+
+    validated_files_count = validate_files_count(args.files_count)
+    logging.info(f"Provided files_count: {validated_files_count} meets the expected criteria")
+
+    return {'path_to_save_files': validated_path, 'files_count': validated_files_count}
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     parser = create_parser()
     args = parser.parse_args()
+
+    validated_args = validate_all_arguments(args)
+
+    logging.info(f"Files will be saved to: {validated_args['path_to_save_files']}")
+    logging.info(f"There will be {validated_args['files_count']} files created.")
 
 if __name__ == "__main__":
     main()
