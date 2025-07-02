@@ -1,6 +1,8 @@
 import argparse
+import logging
 import sys
 from argparse import ArgumentParser
+import os
 
 
 def create_parser():
@@ -31,7 +33,40 @@ def create_parser():
 
     return parser
 
+def validate_path_to_save_files(path_input):
+    if not path_input:
+        logging.error("path_to_save_files is required")
+        sys.exit(1)
+
+    if path_input == '.':
+        return os.getcwd()
+
+    if os.path.isabs(path_input):
+        absolute_path = path_input
+    else:
+        absolute_path = os.path.abspath(path_input)
+
+    if not os.path.exists(absolute_path):
+        logging.error(f"Path does not exist: {absolute_path}")
+        sys.exit(1)
+
+    if not os.path.isdir(absolute_path):
+        logging.error(f"Path exists but is not a directory: {absolute_path}")
+        sys.exit(1)
+
+    if not os.access(absolute_path, os.W_OK):
+        logging.error(f"No write permission for directory: {absolute_path}")
+        sys.exit(1)
+
+    return absolute_path
+
+
+
+def generate_data():
+    pass
+
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     parser = create_parser()
     args = parser.parse_args()
 
