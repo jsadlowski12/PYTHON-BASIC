@@ -3,6 +3,8 @@ import logging
 import sys
 import os
 import configparser
+import random
+import uuid
 
 def create_parser() -> argparse.ArgumentParser:
     defaults = load_defaults_from_config()
@@ -147,6 +149,18 @@ def validate_multiprocessing(multiprocessing: int) -> int:
 
     return multiprocessing
 
+def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
+    if files_count == 1:
+        return f'{file_name}.json'
+    elif file_prefix == 'count':
+        return f'{file_name}_{index}'
+    elif file_prefix == 'random':
+        return f"{file_name}_{random.randint(1000, 9999)}.json"
+    elif file_prefix == 'uuid':
+        return f"{file_name}_{uuid.uuid4()}.json"
+    else:
+        return f"{file_name}_{index}.json"
+
 def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_path = validate_path_to_save_files(args.path_to_save_files)
     logging.info(f"Provided path argument: {validated_path} is valid.")
@@ -177,6 +191,8 @@ def main():
     logging.info(f"There will be {validated_args['files_count']} files created.")
     logging.info(f"There will be {validated_args['data_lines']} lines in file created.")
     logging.info(f"There will be {validated_args['multiprocessing']} processes created.")
+
+
 
 if __name__ == "__main__":
     main()
