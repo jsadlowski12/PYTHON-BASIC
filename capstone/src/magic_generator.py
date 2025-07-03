@@ -97,10 +97,6 @@ def load_defaults_from_config(config_file='default.ini'):
         sys.exit(1)
 
 def validate_path_to_save_files(path_input: str) -> str:
-    if not path_input:
-        logging.error("path_to_save_files is required")
-        sys.exit(1)
-
     if path_input == '.':
         return os.getcwd()
 
@@ -124,10 +120,6 @@ def validate_path_to_save_files(path_input: str) -> str:
     return absolute_path
 
 def validate_files_count(files_count: int) -> int:
-    if files_count is None:
-        logging.error("files_count is required. For more information type the command with --help argument.")
-        sys.exit(1)
-
     if files_count < 0:
         logging.error(f"files_count can't be a negative number: {files_count}. "
                       f"Check --help for more information about expected value.")
@@ -136,15 +128,24 @@ def validate_files_count(files_count: int) -> int:
     return files_count
 
 def validate_data_lines(data_lines: int) -> int:
-    if data_lines is None:
-        logging.error("data_lines argument is required. For more information type the command with --help argument.")
-        sys.exit(1)
-
     if data_lines < 0:
         logging.error(f"data_lines argument can't be a negative number: {data_lines}")
         sys.exit(1)
 
     return data_lines
+
+def validate_multiprocessing(multiprocessing: int) -> int:
+    if multiprocessing < 0:
+        logging.error(f"multiprocessing argument can't be a negative number: {multiprocessing}")
+        sys.exit(1)
+
+    cpu_count = os.cpu_count()
+    if multiprocessing > cpu_count:
+        logging.warning(f"multiprocessing argument value {multiprocessing} is greater than CPU count {cpu_count}, "
+                        f"using {cpu_count} instead")
+        return cpu_count
+
+    return multiprocessing
 
 def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_path = validate_path_to_save_files(args.path_to_save_files)
@@ -156,9 +157,14 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_data_lines = validate_data_lines(args.data_lines)
     logging.info(f"Provided data_lines argument: {validated_data_lines} is valid.")
 
+    validated_multiprocessing = validate_multiprocessing(args.multiprocessing)
+    logging.info(f"Provided multiprocessing argument: {validated_multiprocessing} is valid.")
+
     return {'path_to_save_files': validated_path,
             'files_count': validated_files_count,
-            'data_lines': validated_data_lines}
+            'data_lines': validated_data_lines,
+            'multiprocessing': validated_multiprocessing
+            }
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -169,6 +175,8 @@ def main():
 
     logging.info(f"Files will be saved to: {validated_args['path_to_save_files']}")
     logging.info(f"There will be {validated_args['files_count']} files created.")
+    logging.info(f"There will be {validated_args['data_lines']} lines in file created.")
+    logging.info(f"There will be {validated_args['multiprocessing']} processes created.")
 
 if __name__ == "__main__":
     main()
