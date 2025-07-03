@@ -135,6 +135,8 @@ def validate_files_count(files_count: int) -> int:
 
     return files_count
 
+
+
 def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_path = validate_path_to_save_files(args.path_to_save_files)
     logging.info(f"Provided path: {validated_path} meets the expected criteria")
