@@ -130,8 +130,8 @@ def validate_files_count(files_count: int) -> int:
     return files_count
 
 def validate_data_lines(data_lines: int) -> int:
-    if data_lines < 0:
-        logging.error(f"data_lines argument can't be a negative number: {data_lines}")
+    if data_lines <= 0:
+        logging.error(f"data_lines argument can't be a negative number or zero: {data_lines}")
         sys.exit(1)
 
     return data_lines
@@ -191,8 +191,6 @@ def main():
     logging.info(f"There will be {validated_args['files_count']} files created.")
     logging.info(f"There will be {validated_args['data_lines']} lines in file created.")
     logging.info(f"There will be {validated_args['multiprocessing']} processes created.")
-
-
 
 if __name__ == "__main__":
     main()
