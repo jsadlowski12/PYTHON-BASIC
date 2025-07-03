@@ -36,7 +36,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument('--data_lines',
                         default=defaults['data_lines'],
                         type=int,
-                        help='Count of lines for each file. Default, for example: 1000.')
+                        help='Count of lines for each file. Default: 1000.')
     parser.add_argument('--clear_path',
                         default=defaults['clear_path'],
                         action='store_true',
@@ -125,7 +125,7 @@ def validate_path_to_save_files(path_input: str) -> str:
 
 def validate_files_count(files_count: int) -> int:
     if files_count is None:
-        logging.error("files_count is required. For more information type the command with --help argument")
+        logging.error("files_count is required. For more information type the command with --help argument.")
         sys.exit(1)
 
     if files_count < 0:
@@ -135,16 +135,30 @@ def validate_files_count(files_count: int) -> int:
 
     return files_count
 
+def validate_data_lines(data_lines: int) -> int:
+    if data_lines is None:
+        logging.error("data_lines argument is required. For more information type the command with --help argument.")
+        sys.exit(1)
 
+    if data_lines < 0:
+        logging.error(f"data_lines argument can't be a negative number: {data_lines}")
+        sys.exit(1)
+
+    return data_lines
 
 def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_path = validate_path_to_save_files(args.path_to_save_files)
-    logging.info(f"Provided path: {validated_path} meets the expected criteria")
+    logging.info(f"Provided path argument: {validated_path} is valid.")
 
     validated_files_count = validate_files_count(args.files_count)
-    logging.info(f"Provided files_count: {validated_files_count} meets the expected criteria")
+    logging.info(f"Provided files_count argument: {validated_files_count} is valid.")
 
-    return {'path_to_save_files': validated_path, 'files_count': validated_files_count}
+    validated_data_lines = validate_data_lines(args.data_lines)
+    logging.info(f"Provided data_lines argument: {validated_data_lines} is valid.")
+
+    return {'path_to_save_files': validated_path,
+            'files_count': validated_files_count,
+            'data_lines': validated_data_lines}
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
