@@ -204,7 +204,8 @@ def validate_schema_types(schema: dict[str, str]) -> None:
     for key, value in schema.items():
         if ':' not in value:
             logging.error(
-                f"Schema value for key '{key}' must contain a colon (type:instruction). "
+                f"Schema value for key '{key}' is invalid: '{value}'. "
+                "It must contain a colon (type:instruction). "
                 "See --help for examples."
             )
             sys.exit(1)
@@ -212,7 +213,8 @@ def validate_schema_types(schema: dict[str, str]) -> None:
         parts = value.split(':', 1)
         if len(parts) != 2:
             logging.error(
-                f"Invalid format in key '{key}'. Expected format: type:instruction. "
+                f"Schema value for key '{key}' is malformed: '{value}'. "
+                "Expected format: type:instruction. "
                 "See --help for examples."
             )
             sys.exit(1)
@@ -222,7 +224,7 @@ def validate_schema_types(schema: dict[str, str]) -> None:
 
         if type_hint not in VALID_DATA_TYPES:
             logging.error(
-                f"Invalid type '{type_hint}' in schema key '{key}'. "
+                f"Invalid type '{type_hint}' in schema key '{key}' (value: '{value}'). "
                 f"Supported types are: {', '.join(VALID_DATA_TYPES)}.\n"
                 "Please check --help for proper schema format.\n"
             )
@@ -250,7 +252,8 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_data_lines = validate_data_lines(args.data_lines)
     logging.info(f"Provided data_lines argument: {validated_data_lines} is valid.")
 
-    validated_data_schema = validate_data_schema(args.data_schema)
+    data_schema = load_json_data_schema(args.data_schema)
+    validated_data_schema = validate_data_schema(data_schema)
     logging.info(f"Provided data_schema argument: {validated_data_lines} is valid.")
 
     validated_multiprocessing = validate_multiprocessing(args.multiprocessing)
@@ -272,8 +275,6 @@ def main():
     args = parser.parse_args()
 
     validated_args = validate_all_arguments(args)
-
-    logging.debug(load_json_data_schema(validated_args['data_schema']))
 
     logging.info(f"Files will be saved to: {validated_args['path_to_save_files']}")
     logging.info(f"There will be {validated_args['files_count']} files created.")
