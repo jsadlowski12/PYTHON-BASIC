@@ -6,9 +6,11 @@ import configparser
 import random
 import uuid
 import json
+import time
 from typing import Any
 
 VALID_DATA_TYPES = {'str', 'int', 'timestamp'}
+VALID_RAND_INSTRUCTION_DATA_TYPES = {"str", "int"}
 
 def create_parser() -> argparse.ArgumentParser:
     defaults = load_defaults_from_config()
@@ -185,62 +187,137 @@ def load_json_data_schema(schema_input: str) -> dict[str, str]:
 
 def validate_data_schema(schema: dict[str, str]) -> dict[str, str]:
     if not isinstance(schema, dict):
-        logging.error(
-            "Invalid data schema format. The schema must be a JSON object (dictionary).\n"
-            "Please check --help for examples and format instructions."
+        _error_and_exit(
+            "Invalid data schema format. It must be a JSON object (dictionary).\n"
+            "See --help for examples."
         )
-        sys.exit(1)
 
     if not schema:
-        logging.error("Data schema cannot be empty")
-        sys.exit(1)
+        _error_and_exit("Data schema cannot be empty")
 
-    validate_schema_types(schema)
+    for key, raw_value in schema.items():
+        validate_schema_field(key, raw_value)
 
-    parsed_schema = {}
-    return parsed_schema
+    return schema
 
-def validate_schema_types(schema: dict[str, str]) -> None:
-    for key, value in schema.items():
-        if ':' not in value:
-            logging.error(
-                f"Schema value for key '{key}' is invalid: '{value}'. "
+def validate_schema_field(key: str, raw_value: str) -> None:
+    if ":" not in raw_value:
+        _error_and_exit(
+            f"Schema value for key '{key}' must contain a colon (type:instruction). "
+            "See --help for examples."
+        )
+
+    type_part, instruction = (part.strip() for part in raw_value.split(":", 1))
+
+    validate_type_part(key, type_part, raw_value)
+    validate_instruction_part(key, type_part, instruction, raw_value)
+
+
+def validate_type_part(key: str, type_part: str, raw_value: str) -> None:
+    if type_part not in VALID_DATA_TYPES:
+        _error_and_exit(
+            f"Invalid type '{type_part}' in key '{key}' (value: '{raw_value}'). "
+            f"Supported types: {', '.join(VALID_DATA_TYPES)}.\n"
+            "Please check --help for the proper format."
+        )
+
+def validate_instruction_part(key: str, type_part: str, instruction_part: str, raw_value: str) -> None:
+    if type_part == "timestamp":
+        if instruction_part:
+            logging.warning(
+                f"Key '{key}': timestamp ignores any value; '{instruction_part}' will be ignored."
+            )
+        return
+
+    if instruction_part == "":
+        return
+
+    if instruction_part == "rand":
+        validate_rand_instruction(key, type_part, raw_value)
+        return
+
+    if instruction_part.startswith("rand(") and instruction_part.endswith(")"):
+        validate_rand_range_instruction(key, type_part, instruction_part, raw_value)
+        return
+
+    if instruction_part.startswith("[") and instruction_part.endswith("]"):
+        validate_list_instruction(key, type_part, instruction_part)
+        return
+
+    validate_constant_instruction(key, type_part, instruction_part)
+
+
+def validate_rand_instruction(key: str, type_part: str, raw_value: str) -> None:
+    if type_part not in VALID_RAND_INSTRUCTION_DATA_TYPES:
+        _error_and_exit(
+            f"'rand' instruction is only valid for str or int "
+            f"(error in key '{key}', value '{raw_value}')."
+        )
+
+def validate_rand_range_instruction(key: str, type_part: str, instruction_part: str, raw_value: str) -> None:
+    if type_part != "int":
+        _error_and_exit(
+            f"rand(from, to) is only valid for int type "
+            f"(error in key '{key}', value '{raw_value}')."
+        )
+
+    try:
+        lower_str, upper_str = (s.strip() for s in instruction_part[5:-1].split(",", 1))
+        lower_bound, upper_bound = int(lower_str), int(upper_str)
+
+        if lower_bound > upper_bound:
+            _error_and_exit(
+                f"Invalid range rand({lower_bound}, {upper_bound}) in key '{key}'. "
+                "Lower bound must not exceed upper bound."
+            )
+
+    except (ValueError, IndexError):
+        _error_and_exit(
+            f"Invalid format in rand(from, to) at key '{key}'. "
+            "Example: int:rand(1, 90)"
+        )
+
+def validate_list_instruction(key: str, type_part: str, instruction_part: str) -> None:
+    try:
+        items = json.loads(instruction_part.replace("'", '"'))
+
+        if not isinstance(items, list):
+            _error_and_exit(
+                f"Instruction in key '{key}' must be a list when in [...] form."
+            )
+
+        if type_part == "str" and not all(isinstance(x, str) for x in items):
+            _error_and_exit(
+                f"All elements in list for key '{key}' must be strings (type is str)."
+            )
+
+        if type_part == "int" and not all(isinstance(x, int) for x in items):
+            _error_and_exit(
+                f"All elements in list for key '{key}' must be ints (type is int)."
+            )
+
+    except json.JSONDecodeError:
+        _error_and_exit(
+            f"List instruction in key '{key}' must be valid JSON/array syntax."
+        )
+
+def validate_constant_instruction(key: str, type_part: str, instruction: str) -> None:
+    if type_part == "str":
+        if instruction == "rand":
+            _error_and_exit(
+                f"Schema value for key '{key}' is invalid: '{instruction}'. "
                 "It must contain a colon (type:instruction). "
                 "See --help for examples."
             )
-            sys.exit(1)
+        return
 
-        parts = value.split(':', 1)
-        if len(parts) != 2:
-            logging.error(
-                f"Schema value for key '{key}' is malformed: '{value}'. "
-                "Expected format: type:instruction. "
-                "See --help for examples."
-            )
-            sys.exit(1)
-
-        type_hint = parts[0].strip()
-        instruction = parts[1].strip()
-
-        if type_hint not in VALID_DATA_TYPES:
-            logging.error(
-                f"Invalid type '{type_hint}' in schema key '{key}' (value: '{value}'). "
-                f"Supported types are: {', '.join(VALID_DATA_TYPES)}.\n"
-                "Please check --help for proper schema format.\n"
-            )
-            sys.exit(1)
-
-def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
-    if files_count == 1:
-        return f'{file_name}.json'
-    elif file_prefix == 'count':
-        return f'{file_name}_{index}'
-    elif file_prefix == 'random':
-        return f"{file_name}_{random.randint(1000, 9999)}.json"
-    elif file_prefix == 'uuid':
-        return f"{file_name}_{uuid.uuid4()}.json"
-    else:
-        return f"{file_name}_{index}.json"
+    try:
+        int(instruction)
+    except ValueError:
+        _error_and_exit(
+            f"Invalid format in key '{key}'. Expected format: type:instruction. "
+            "See --help for examples."
+        )
 
 def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_path = validate_path_to_save_files(args.path_to_save_files)
@@ -268,6 +345,43 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
             'clear_path': args.clear_path,
             'multiprocessing': validated_multiprocessing
             }
+
+def generate_value(type_part: str, instruction: str) -> Any:
+    if type_part == "timestamp":
+        return time.time()
+
+    if instruction == "":
+        return "" if type_part == "str" else None
+
+    if instruction == "rand":
+        return str(uuid.uuid4()) if type_part == "str" else random.randint(0, 10000)
+
+    if instruction.startswith("rand(") and instruction.endswith(")"):
+        lo_str, hi_str = (s.strip() for s in instruction[5:-1].split(",", 1))
+        lo, hi = int(lo_str), int(hi_str)
+        return random.randint(lo, hi)
+
+    if instruction.startswith("[") and instruction.endswith("]"):
+        items = json.loads(instruction.replace("'", '"'))
+        return random.choice(items)
+
+    return instruction if type_part == "str" else int(instruction)
+
+def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
+    if files_count == 1:
+        return f'{file_name}.json'
+    elif file_prefix == 'count':
+        return f'{file_name}_{index}'
+    elif file_prefix == 'random':
+        return f"{file_name}_{random.randint(1000, 9999)}.json"
+    elif file_prefix == 'uuid':
+        return f"{file_name}_{uuid.uuid4()}.json"
+    else:
+        return f"{file_name}_{index}.json"
+
+def _error_and_exit(msg: str) -> None:
+    logging.error(msg)
+    sys.exit(1)
 
 def main():
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
