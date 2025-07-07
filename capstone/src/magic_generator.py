@@ -6,6 +6,9 @@ import configparser
 import random
 import uuid
 import json
+from typing import Any
+
+VALID_DATA_TYPES = {'str', 'int', 'timestamp'}
 
 def create_parser() -> argparse.ArgumentParser:
     defaults = load_defaults_from_config()
@@ -33,9 +36,15 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument('--data_schema',
                         required=True,
                         type=str,
-                        help='It’s a string with json schema. '
-                             'It could be loaded in two ways: '
-                            '1) With path to json file with schema 2) with schema entered to command line.')
+                        help=(
+                            "JSON schema as a string. Can be provided in two ways:\n"
+                            "1) Path to a JSON file: e.g., './schema.json'\n"
+                            "2) Inline JSON string: e.g., "
+                            "'{\"name\": \"str:rand\", \"age\": \"int:rand(1, 100)\", \"type\": \"str:['client','partner']\"}'\n\n"
+                            "All values must follow the pattern type:instruction.\n"
+                            "Supported types: str, int, timestamp.\n"
+                            "Instructions include: rand, rand(from, to), list values, fixed value, or empty.\n")
+                        )
     parser.add_argument('--data_lines',
                         default=defaults['data_lines'],
                         type=int,
@@ -174,6 +183,51 @@ def load_json_data_schema(schema_input: str) -> dict[str, str]:
         logging.error("Make sure to properly escape quotes in command line JSON")
         sys.exit(1)
 
+def validate_data_schema(schema: dict[str, str]) -> dict[str, str]:
+    if not isinstance(schema, dict):
+        logging.error(
+            "Invalid data schema format. The schema must be a JSON object (dictionary).\n"
+            "Please check --help for examples and format instructions."
+        )
+        sys.exit(1)
+
+    if not schema:
+        logging.error("Data schema cannot be empty")
+        sys.exit(1)
+
+    validate_schema_types(schema)
+
+    parsed_schema = {}
+    return parsed_schema
+
+def validate_schema_types(schema: dict[str, str]) -> None:
+    for key, value in schema.items():
+        if ':' not in value:
+            logging.error(
+                f"Schema value for key '{key}' must contain a colon (type:instruction). "
+                "See --help for examples."
+            )
+            sys.exit(1)
+
+        parts = value.split(':', 1)
+        if len(parts) != 2:
+            logging.error(
+                f"Invalid format in key '{key}'. Expected format: type:instruction. "
+                "See --help for examples."
+            )
+            sys.exit(1)
+
+        type_hint = parts[0].strip()
+        instruction = parts[1].strip()
+
+        if type_hint not in VALID_DATA_TYPES:
+            logging.error(
+                f"Invalid type '{type_hint}' in schema key '{key}'. "
+                f"Supported types are: {', '.join(VALID_DATA_TYPES)}.\n"
+                "Please check --help for proper schema format.\n"
+            )
+            sys.exit(1)
+
 def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
     if files_count == 1:
         return f'{file_name}.json'
@@ -196,6 +250,9 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
     validated_data_lines = validate_data_lines(args.data_lines)
     logging.info(f"Provided data_lines argument: {validated_data_lines} is valid.")
 
+    validated_data_schema = validate_data_schema(args.data_schema)
+    logging.info(f"Provided data_schema argument: {validated_data_lines} is valid.")
+
     validated_multiprocessing = validate_multiprocessing(args.multiprocessing)
     logging.info(f"Provided multiprocessing argument: {validated_multiprocessing} is valid.")
 
@@ -204,7 +261,7 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
             'file_prefix': args.file_prefix,
             'files_count': validated_files_count,
             'data_lines': validated_data_lines,
-            'data_schema': args.data_schema,
+            'data_schema': validated_data_schema,
             'clear_path': args.clear_path,
             'multiprocessing': validated_multiprocessing
             }
