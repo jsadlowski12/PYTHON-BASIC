@@ -5,6 +5,7 @@ import os
 import configparser
 import random
 import uuid
+import json
 
 def create_parser() -> argparse.ArgumentParser:
     defaults = load_defaults_from_config()
@@ -149,6 +150,30 @@ def validate_multiprocessing(multiprocessing: int) -> int:
 
     return multiprocessing
 
+def load_json_data_schema(schema_input: str) -> dict[str, str]:
+    if os.path.isfile(schema_input):
+        try:
+            with open(schema_input, 'r') as f:
+                schema = json.load(f)
+            logging.info(f"JSON schema successfully loaded from file: {schema_input}")
+            return schema
+        except (json.JSONDecodeError, IOError) as e:
+            logging.error(f"Failed to load schema from file '{schema_input}': {e}")
+            sys.exit(1)
+
+    if schema_input.endswith('.json') or os.path.sep in schema_input:
+        logging.error(f"JSON schema file not found: {schema_input} (Current directory: {os.getcwd()})")
+        sys.exit(1)
+
+    try:
+        schema = json.loads(schema_input)
+        logging.info("JSON schema successfully parsed from command line input")
+        return schema
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse schema as JSON string: {e}")
+        logging.error("Make sure to properly escape quotes in command line JSON")
+        sys.exit(1)
+
 def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
     if files_count == 1:
         return f'{file_name}.json'
@@ -175,17 +200,23 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
     logging.info(f"Provided multiprocessing argument: {validated_multiprocessing} is valid.")
 
     return {'path_to_save_files': validated_path,
+            'file_name': args.file_name,
+            'file_prefix': args.file_prefix,
             'files_count': validated_files_count,
             'data_lines': validated_data_lines,
+            'data_schema': args.data_schema,
+            'clear_path': args.clear_path,
             'multiprocessing': validated_multiprocessing
             }
 
 def main():
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
     parser = create_parser()
     args = parser.parse_args()
 
     validated_args = validate_all_arguments(args)
+
+    logging.debug(load_json_data_schema(validated_args['data_schema']))
 
     logging.info(f"Files will be saved to: {validated_args['path_to_save_files']}")
     logging.info(f"There will be {validated_args['files_count']} files created.")
