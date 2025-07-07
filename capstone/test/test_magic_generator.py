@@ -2,10 +2,12 @@ import pytest
 import os
 import uuid
 import random
+import json
 
 from capstone.src import magic_generator
 
 class TestValidationFunctions:
+    # path_to_save_files
     @pytest.mark.parametrize("path_input", [".", ""])
     def test_validate_path_to_save_files_current_dir(self, tmp_path, monkeypatch, path_input):
         monkeypatch.chdir(tmp_path)
@@ -28,6 +30,7 @@ class TestValidationFunctions:
             magic_generator.validate_path_to_save_files(file_path.as_posix())
         assert system_info.value.code == 1
 
+    # files_count
     def test_validate_files_count_negative_number(self):
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_files_count(-1)
@@ -41,6 +44,7 @@ class TestValidationFunctions:
         result = magic_generator.validate_files_count(files_count)
         assert result == expected_result
 
+    # data_lines
     @pytest.mark.parametrize("data_lines", [-1, 0])
     def test_validate_data_lines_negative_number_or_zero(self, data_lines):
         with pytest.raises(SystemExit) as system_info:
@@ -55,6 +59,7 @@ class TestValidationFunctions:
         result = magic_generator.validate_data_lines(data_lines)
         assert result == expected_result
 
+    # multiprocessing
     def test_validate_multiprocessing_negative_number(self):
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_multiprocessing(-1)
@@ -68,6 +73,33 @@ class TestValidationFunctions:
         monkeypatch.setattr(os, "cpu_count", lambda: 4)
         result = magic_generator.validate_multiprocessing(10)
         assert result == 4
+
+class TestJSONSchemaLoader:
+    def test_load_json_data_schema_correct_schema(self, tmp_path):
+        schema_data = {"date":"timestamp:", "name": "str:rand",
+                       "type":"str:['client', 'partner', 'government']", "age": "int:rand(1, 90)"}
+        schema_file = tmp_path.joinpath("schema.json")
+        schema_file.write_text(json.dumps(schema_data))
+
+        result = magic_generator.load_json_data_schema(str(schema_file))
+        assert result == schema_data
+
+    def test_load_json_data_schema_file_not_found(self, tmp_path):
+        fake_file = tmp_path / "non_existent_schema.json"
+        assert not fake_file.exists()
+
+        with pytest.raises(SystemExit) as system_info:
+            magic_generator.load_json_data_schema(str(fake_file))
+
+        assert system_info.value.code == 1
+
+    def test_load_json_data_schema_invalid_json_string(self):
+        invalid_json = '{"foo": "bar", "baz": qux}'
+
+        with pytest.raises(SystemExit) as system_info:
+            magic_generator.load_json_data_schema(invalid_json)
+
+        assert system_info.value.code == 1
 
 class TestGenerateFileName:
     def test_generate_file_name_single_file(self):

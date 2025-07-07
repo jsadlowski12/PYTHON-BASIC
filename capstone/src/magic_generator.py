@@ -346,26 +346,26 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
             'multiprocessing': validated_multiprocessing
             }
 
-def generate_value(type_part: str, instruction: str) -> Any:
+def generate_value(type_part: str, instruction_part: str) -> Any:
     if type_part == "timestamp":
         return time.time()
 
-    if instruction == "":
+    if instruction_part == "":
         return "" if type_part == "str" else None
 
-    if instruction == "rand":
+    if instruction_part == "rand":
         return str(uuid.uuid4()) if type_part == "str" else random.randint(0, 10000)
 
-    if instruction.startswith("rand(") and instruction.endswith(")"):
-        lo_str, hi_str = (s.strip() for s in instruction[5:-1].split(",", 1))
-        lo, hi = int(lo_str), int(hi_str)
-        return random.randint(lo, hi)
+    if instruction_part.startswith("rand(") and instruction_part.endswith(")"):
+        lower_str, upper_str = (s.strip() for s in instruction_part[5:-1].split(",", 1))
+        lower_bound, higher_bound = int(lower_str), int(upper_str)
+        return random.randint(lower_bound, higher_bound)
 
-    if instruction.startswith("[") and instruction.endswith("]"):
-        items = json.loads(instruction.replace("'", '"'))
+    if instruction_part.startswith("[") and instruction_part.endswith("]"):
+        items = json.loads(instruction_part.replace("'", '"'))
         return random.choice(items)
 
-    return instruction if type_part == "str" else int(instruction)
+    return instruction_part if type_part == "str" else int(instruction_part)
 
 def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
     if files_count == 1:
