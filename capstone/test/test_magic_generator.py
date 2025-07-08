@@ -74,6 +74,27 @@ class TestValidateMultiprocessingArgument:
         assert result == 4
 
 class TestValidateDataSchemaArgument:
+    @pytest.mark.parametrize("schema,should_pass", [
+        ({"name": "str:rand", "age": "int:rand(1, 100)"}, True),
+        ({"id": "int:rand", "status": "str:['active', 'inactive']"}, True),
+        ({"timestamp": "timestamp:", "value": "int:42"}, True),
+        ({"email": "str:user@example.com"}, True),
+        ({"scores": "int:[10, 20, 30, 40, 50]"}, True),
+        ({"name": "str:rand", "empty_field": "str:"}, True),
+        ({"name": "strrand"}, False),
+        ({"date": "timestamp:rand"}, False),
+        ({"score": "int:rand(100, 10)"}, False),
+        ({"role": "str:[admin, user]"}, False),
+        ({"level": "int:[1, '2', 3]"}, False),
+        ({}, False),
+    ])
+    def test_schema_validation(self, schema, should_pass):
+        if should_pass:
+            magic_generator.validate_data_schema(schema)
+        else:
+            with pytest.raises(SystemExit):
+                magic_generator.validate_data_schema(schema)
+
     def test_schema_not_dict(self):
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_data_schema("not_a_dict")
@@ -139,30 +160,69 @@ class TestValidateDataSchemaArgument:
         assert system_info.value.code == 1
 
 class TestJSONSchemaLoader:
-    def test_correct_schema(self, tmp_path):
-        schema_data = {"date":"timestamp:", "name": "str:rand",
-                       "type":"str:['client', 'partner', 'government']", "age": "int:rand(1, 90)"}
-        schema_file = tmp_path.joinpath("schema.json")
+    @pytest.fixture
+    def valid_schema_file(self, tmp_path):
+        schema_data = {
+            "user_id": "int:rand(1, 1000)",
+            "username": "str:rand",
+            "email": "str:user@domain.com",
+            "status": "str:['active', 'inactive', 'pending']",
+            "created_at": "timestamp:"
+        }
+        schema_file = tmp_path.joinpath("valid_schema.json")
         schema_file.write_text(json.dumps(schema_data))
+        return str(schema_file), schema_data
 
-        result = magic_generator.load_json_data_schema(str(schema_file))
-        assert result == schema_data
+    @pytest.fixture
+    def invalid_json_file(self, tmp_path):
+        invalid_file = tmp_path.joinpath("invalid_schema.json")
+        invalid_file.write_text('{"name": "str:rand", "age": invalid_json}')
+        return str(invalid_file)
+
+    @pytest.fixture
+    def complex_schema_file(self, tmp_path):
+        schema_data = {
+            "product_id": "int:rand(1, 999999)",
+            "product_name": "str:rand",
+            "category": "str:['electronics', 'clothing', 'books', 'home']",
+            "price": "int:rand(1, 1000)",
+            "discount": "int:[0, 5, 10, 15, 20, 25]",
+            "in_stock": "str:['yes', 'no']",
+            "description": "str:High quality product",
+            "rating": "int:rand(1, 5)"
+        }
+        schema_file = tmp_path.joinpath("complex_schema.json")
+        schema_file.write_text(json.dumps(schema_data))
+        return str(schema_file), schema_data
+
+    def test_correct_schema(self, valid_schema_file):
+        file_path, expected_data = valid_schema_file
+        result = magic_generator.load_json_data_schema(file_path)
+        assert result == expected_data
 
     def test_file_not_found(self, tmp_path):
-        fake_file = tmp_path / "non_existent_schema.json"
+        fake_file = tmp_path.joinpath("non_existent_schema.json")
         assert not fake_file.exists()
 
         with pytest.raises(SystemExit) as system_info:
             magic_generator.load_json_data_schema(str(fake_file))
-
         assert system_info.value.code == 1
+
+    def test_invalid_json_file(self, invalid_json_file):
+        with pytest.raises(SystemExit) as system_info:
+            magic_generator.load_json_data_schema(invalid_json_file)
+        assert system_info.value.code == 1
+
+    def test_load_complex_schema_file(self, complex_schema_file):
+        file_path, expected_data = complex_schema_file
+        result = magic_generator.load_json_data_schema(file_path)
+        assert result == expected_data
+        magic_generator.validate_data_schema(result)
 
     def test_invalid_json_string(self):
         invalid_json = '{"foo": "bar", "baz": qux}'
-
         with pytest.raises(SystemExit) as system_info:
             magic_generator.load_json_data_schema(invalid_json)
-
         assert system_info.value.code == 1
 
 class TestGenerateFileName:
@@ -189,6 +249,21 @@ class TestGenerateFileName:
         assert result == "test_3.json"
 
 class TestGenerateValue:
+    @pytest.mark.parametrize("data_type,instruction,expected_type", [
+        ("str", "rand", str),
+        ("int", "rand", int),
+        ("str", "constant_value", str),
+        ("int", "42", int),
+        ("str", '["option1", "option2"]', str),
+        ("int", "[1, 2, 3]", int),
+        ("str", "", str),
+        ("timestamp", "", float),
+    ])
+    def test_generate_value_different_types(self, data_type, instruction, expected_type):
+        result = magic_generator.generate_value(data_type, instruction)
+        if result is not None:
+            assert isinstance(result, expected_type)
+
     def test_empty_string_input(self):
         result = magic_generator.generate_value("str", "")
         assert result == ""
