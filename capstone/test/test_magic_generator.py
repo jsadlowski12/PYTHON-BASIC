@@ -187,3 +187,79 @@ class TestGenerateFileName:
     def test_default_case(self):
         result = magic_generator.generate_file_name("test", "unknown", 5, 3)
         assert result == "test_3.json"
+
+class TestGenerateValue:
+    def test_empty_string_input(self):
+        result = magic_generator.generate_value("str", "")
+        assert result == ""
+
+    def test_empty_instruction_int_type(self):
+        result = magic_generator.generate_value("int", "")
+        assert result is None
+
+    def test_rand_instruction_str_type_returns_uuid(self):
+        result = magic_generator.generate_value("str", "rand")
+        assert isinstance(result, str)
+        uuid.UUID(result)
+
+    def test_rand_instruction_int_type_in_range(self):
+        result = magic_generator.generate_value("int", "rand")
+        assert isinstance(result, int)
+        assert 0 <= result <= 10000
+
+    def test_rand_range_instruction_basic(self):
+        result = magic_generator.generate_value("int", "rand(10, 20)")
+        assert isinstance(result, int)
+        assert 10 <= result <= 20
+
+    def test_rand_range_instruction_with_spaces(self):
+        result = magic_generator.generate_value("int", "rand( 5 , 15 )")
+        assert isinstance(result, int)
+        assert 5 <= result <= 15
+
+    def test_list_instruction_str_type(self):
+        options = ["apple", "banana", "cherry"]
+        result = magic_generator.generate_value("str", '["apple", "banana", "cherry"]')
+        assert result in options
+
+    def test_list_instruction_int_type(self):
+        options = [10, 20, 30, 42]
+        result = magic_generator.generate_value("int", "[10, 20, 30, 42]")
+        assert result in options
+
+    def test_list_instruction_single(self):
+        result = magic_generator.generate_value("str", '["only_option"]')
+        assert result == "only_option"
+
+    def test_constant_instruction_str_type(self):
+        result = magic_generator.generate_value("str", "hello world")
+        assert result == "hello world"
+
+    def test_constant_instruction_int_type(self):
+        result = magic_generator.generate_value("int", "123")
+        assert result == 123
+
+    def test_constant_instruction_negative_int(self):
+        result = magic_generator.generate_value("int", "-456")
+        assert result == -456
+
+    @pytest.mark.parametrize("type_part,instruction,expected", [
+        ("str", "constant_value", "constant_value"),
+        ("str", "another string", "another string"),
+        ("str", "123", "123"),
+        ("int", "789", 789),
+        ("int", "-123", -123),
+        ("int", "0", 0),
+    ])
+    def test_constant_values_parametrized(self, type_part, instruction, expected):
+        result = magic_generator.generate_value(type_part, instruction)
+        assert result == expected
+
+    def test_complex_list_with_mixed_content(self):
+        result = magic_generator.generate_value("str", '["hello world", "test-123", ""]')
+        assert result in ["hello world", "test-123", ""]
+
+    def test_list_with_numbers_as_strings(self):
+        result = magic_generator.generate_value("str", '["123", "456"]')
+        assert result in ["123", "456"]
+        assert isinstance(result, str)
