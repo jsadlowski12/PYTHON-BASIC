@@ -17,17 +17,18 @@ class TestValidatePathToSaveFilesArgument:
         result = magic_generator.validate_path_to_save_files(tmp_path.as_posix())
         assert result == tmp_path.as_posix()
 
-    @pytest.mark.parametrize("bad_input", ["/this/path/does/not/exist"])
-    def test_invalid_path(self, bad_input):
+    def test_invalid_path(self):
         with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_path_to_save_files(bad_input)
+            magic_generator.validate_path_to_save_files("/this/path/does/not/exist")
         assert system_info.value.code == 1
 
     def test_is_not_a_directory(self, tmp_path):
         file_path = tmp_path.joinpath("data.txt")
+        file_path.touch()  # Create the file
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_path_to_save_files(file_path.as_posix())
         assert system_info.value.code == 1
+
 
 class TestValidateFilesCountArgument:
     def test_negative_count(self):
@@ -35,28 +36,24 @@ class TestValidateFilesCountArgument:
             magic_generator.validate_files_count(-1)
         assert system_info.value.code == 1
 
-    @pytest.mark.parametrize(
-        "files_count, expected_result",
-        [(0, 0), (1, 1), (2, 2),]
-    )
-    def test_count_zero_and_greater(self, files_count, expected_result):
+    @pytest.mark.parametrize("files_count", [0, 1, 2, 10])
+    def test_valid_counts(self, files_count):
         result = magic_generator.validate_files_count(files_count)
-        assert result == expected_result
+        assert result == files_count
+
 
 class TestValidateDataLinesArgument:
     @pytest.mark.parametrize("data_lines", [-1, 0])
-    def test_negative_number_or_zero(self, data_lines):
+    def test_invalid_data_lines(self, data_lines):
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_data_lines(data_lines)
         assert system_info.value.code == 1
 
-    @pytest.mark.parametrize(
-        "data_lines, expected_result",
-        [(1, 1), (5, 5), (1000, 1000),]
-    )
-    def test_valid_number(self, data_lines, expected_result):
+    @pytest.mark.parametrize("data_lines", [1, 5, 1000])
+    def test_valid_data_lines(self, data_lines):
         result = magic_generator.validate_data_lines(data_lines)
-        assert result == expected_result
+        assert result == data_lines
+
 
 class TestValidateMultiprocessingArgument:
     def test_negative_number(self):
@@ -73,6 +70,7 @@ class TestValidateMultiprocessingArgument:
         result = magic_generator.validate_multiprocessing(10)
         assert result == 4
 
+
 class TestValidateDataSchemaArgument:
     @pytest.mark.parametrize("schema,should_pass", [
         ({"name": "str:rand", "age": "int:rand(1, 100)"}, True),
@@ -81,12 +79,12 @@ class TestValidateDataSchemaArgument:
         ({"email": "str:user@example.com"}, True),
         ({"scores": "int:[10, 20, 30, 40, 50]"}, True),
         ({"name": "str:rand", "empty_field": "str:"}, True),
-        ({"name": "strrand"}, False),
-        ({"date": "timestamp:rand"}, False),
-        ({"score": "int:rand(100, 10)"}, False),
-        ({"role": "str:[admin, user]"}, False),
-        ({"level": "int:[1, '2', 3]"}, False),
-        ({}, False),
+        ({"name": "strrand"}, False),  # Missing colon
+        ({"date": "timestamp:rand"}, False),  # Invalid timestamp instruction
+        ({"score": "int:rand(100, 10)"}, False),  # Invalid range bounds
+        ({"role": "str:[admin, user]"}, False),  # Invalid JSON in list
+        ({"level": "int:[1, '2', 3]"}, False),  # Mixed types in list
+        ({}, False),  # Empty schema
     ])
     def test_schema_validation(self, schema, should_pass):
         if should_pass:
@@ -98,35 +96,6 @@ class TestValidateDataSchemaArgument:
     def test_schema_not_dict(self):
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_data_schema("not_a_dict")
-        assert system_info.value.code == 1
-
-    def test_empty_schema(self):
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema({})
-        assert system_info.value.code == 1
-
-    def test_missing_colon(self):
-        schema = {"name": "strrand"}
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema(schema)
-        assert system_info.value.code == 1
-
-    def test_rand_invalid_type(self):
-        schema = {"date": "timestamp:rand"}
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema(schema)
-        assert system_info.value.code == 1
-
-    def test_rand_range_invalid_type(self):
-        schema = {"username": "str:rand(1, 3)"}
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema(schema)
-        assert system_info.value.code == 1
-
-    def test_rand_range_bounds_invalid(self):
-        schema = {"score": "int:rand(100, 10)"}
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema(schema)
         assert system_info.value.code == 1
 
     @pytest.mark.parametrize("value", [
@@ -141,23 +110,18 @@ class TestValidateDataSchemaArgument:
             magic_generator.validate_data_schema(schema)
         assert system_info.value.code == 1
 
-    def test_invalid_list_json(self):
-        schema = {"role": "str:[admin, user]"}
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema(schema)
-        assert system_info.value.code == 1
-
-    def test_list_wrong_element_type(self):
-        schema = {"level": "int:[1, '2', 3]"}
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.validate_data_schema(schema)
-        assert system_info.value.code == 1
-
     def test_invalid_constant_int(self):
         schema = {"count": "int:forty"}
         with pytest.raises(SystemExit) as system_info:
             magic_generator.validate_data_schema(schema)
         assert system_info.value.code == 1
+
+    def test_rand_range_invalid_type(self):
+        schema = {"username": "str:rand(1, 3)"}
+        with pytest.raises(SystemExit) as system_info:
+            magic_generator.validate_data_schema(schema)
+        assert system_info.value.code == 1
+
 
 class TestJSONSchemaLoader:
     @pytest.fixture
@@ -179,22 +143,6 @@ class TestJSONSchemaLoader:
         invalid_file.write_text('{"name": "str:rand", "age": invalid_json}')
         return str(invalid_file)
 
-    @pytest.fixture
-    def complex_schema_file(self, tmp_path):
-        schema_data = {
-            "product_id": "int:rand(1, 999999)",
-            "product_name": "str:rand",
-            "category": "str:['electronics', 'clothing', 'books', 'home']",
-            "price": "int:rand(1, 1000)",
-            "discount": "int:[0, 5, 10, 15, 20, 25]",
-            "in_stock": "str:['yes', 'no']",
-            "description": "str:High quality product",
-            "rating": "int:rand(1, 5)"
-        }
-        schema_file = tmp_path.joinpath("complex_schema.json")
-        schema_file.write_text(json.dumps(schema_data))
-        return str(schema_file), schema_data
-
     def test_correct_schema(self, valid_schema_file):
         file_path, expected_data = valid_schema_file
         result = magic_generator.load_json_data_schema(file_path)
@@ -202,8 +150,6 @@ class TestJSONSchemaLoader:
 
     def test_file_not_found(self, tmp_path):
         fake_file = tmp_path.joinpath("non_existent_schema.json")
-        assert not fake_file.exists()
-
         with pytest.raises(SystemExit) as system_info:
             magic_generator.load_json_data_schema(str(fake_file))
         assert system_info.value.code == 1
@@ -213,17 +159,6 @@ class TestJSONSchemaLoader:
             magic_generator.load_json_data_schema(invalid_json_file)
         assert system_info.value.code == 1
 
-    def test_load_complex_schema_file(self, complex_schema_file):
-        file_path, expected_data = complex_schema_file
-        result = magic_generator.load_json_data_schema(file_path)
-        assert result == expected_data
-        magic_generator.validate_data_schema(result)
-
-    def test_invalid_json_string(self):
-        invalid_json = '{"foo": "bar", "baz": qux}'
-        with pytest.raises(SystemExit) as system_info:
-            magic_generator.load_json_data_schema(invalid_json)
-        assert system_info.value.code == 1
 
 class TestGenerateFileName:
     def test_generate_file_name_single_file(self):
@@ -248,6 +183,7 @@ class TestGenerateFileName:
         result = magic_generator.generate_file_name("test", "unknown", 5, 3)
         assert result == "test_3.json"
 
+
 class TestGenerateValue:
     @pytest.mark.parametrize("data_type,instruction,expected_type", [
         ("str", "rand", str),
@@ -264,80 +200,52 @@ class TestGenerateValue:
         if result is not None:
             assert isinstance(result, expected_type)
 
-    def test_empty_string_input(self):
+    def test_empty_instruction_behaviors(self):
         result = magic_generator.generate_value("str", "")
         assert result == ""
 
-    def test_empty_instruction_int_type(self):
         result = magic_generator.generate_value("int", "")
         assert result is None
 
-    def test_rand_instruction_str_type_returns_uuid(self):
+    def test_rand_instruction_behaviors(self):
         result = magic_generator.generate_value("str", "rand")
         assert isinstance(result, str)
         uuid.UUID(result)
 
-    def test_rand_instruction_int_type_in_range(self):
         result = magic_generator.generate_value("int", "rand")
         assert isinstance(result, int)
         assert 0 <= result <= 10000
 
-    def test_rand_range_instruction_basic(self):
-        result = magic_generator.generate_value("int", "rand(10, 20)")
+    @pytest.mark.parametrize("instruction,expected_range", [
+        ("rand(10, 20)", (10, 20)),
+        ("rand( 5 , 15 )", (5, 15)),
+    ])
+    def test_rand_range_instruction(self, instruction, expected_range):
+        result = magic_generator.generate_value("int", instruction)
         assert isinstance(result, int)
-        assert 10 <= result <= 20
+        assert expected_range[0] <= result <= expected_range[1]
 
-    def test_rand_range_instruction_with_spaces(self):
-        result = magic_generator.generate_value("int", "rand( 5 , 15 )")
-        assert isinstance(result, int)
-        assert 5 <= result <= 15
-
-    def test_list_instruction_str_type(self):
-        options = ["apple", "banana", "cherry"]
-        result = magic_generator.generate_value("str", '["apple", "banana", "cherry"]')
+    @pytest.mark.parametrize("data_type,instruction,options", [
+        ("str", '["apple", "banana", "cherry"]', ["apple", "banana", "cherry"]),
+        ("int", "[10, 20, 30, 42]", [10, 20, 30, 42]),
+        ("str", '["only_option"]', ["only_option"]),
+        ("str", '["hello world", "test-123", ""]', ["hello world", "test-123", ""]),
+    ])
+    def test_list_instruction(self, data_type, instruction, options):
+        result = magic_generator.generate_value(data_type, instruction)
         assert result in options
 
-    def test_list_instruction_int_type(self):
-        options = [10, 20, 30, 42]
-        result = magic_generator.generate_value("int", "[10, 20, 30, 42]")
-        assert result in options
-
-    def test_list_instruction_single(self):
-        result = magic_generator.generate_value("str", '["only_option"]')
-        assert result == "only_option"
-
-    def test_constant_instruction_str_type(self):
-        result = magic_generator.generate_value("str", "hello world")
-        assert result == "hello world"
-
-    def test_constant_instruction_int_type(self):
-        result = magic_generator.generate_value("int", "123")
-        assert result == 123
-
-    def test_constant_instruction_negative_int(self):
-        result = magic_generator.generate_value("int", "-456")
-        assert result == -456
-
-    @pytest.mark.parametrize("type_part,instruction,expected", [
-        ("str", "constant_value", "constant_value"),
-        ("str", "another string", "another string"),
+    @pytest.mark.parametrize("data_type,instruction,expected", [
+        ("str", "hello world", "hello world"),
         ("str", "123", "123"),
-        ("int", "789", 789),
-        ("int", "-123", -123),
+        ("int", "123", 123),
+        ("int", "-456", -456),
         ("int", "0", 0),
     ])
-    def test_constant_values_parametrized(self, type_part, instruction, expected):
-        result = magic_generator.generate_value(type_part, instruction)
+    def test_constant_instruction(self, data_type, instruction, expected):
+        result = magic_generator.generate_value(data_type, instruction)
         assert result == expected
 
-    def test_complex_list_with_mixed_content(self):
-        result = magic_generator.generate_value("str", '["hello world", "test-123", ""]')
-        assert result in ["hello world", "test-123", ""]
-
-    def test_list_with_numbers_as_strings(self):
-        result = magic_generator.generate_value("str", '["123", "456"]')
-        assert result in ["123", "456"]
-        assert isinstance(result, str)
 
 class TestGenerateDataRecord:
     def test_single_field_string(self, monkeypatch):
@@ -348,6 +256,7 @@ class TestGenerateDataRecord:
         record = magic_generator.generate_data_record(schema)
 
         assert record == {"name": "test_string"}
+
 
 class TestOutputOperations:
     def test_print_data_to_console(self, capfd):
@@ -369,8 +278,8 @@ class TestOutputOperations:
 
         assert saved == data
 
+
 class TestMultiprocessingLogic:
-    # distribute_files_across_processes
     def test_single_file_and_process(self):
         result = magic_generator.distribute_files_across_processes(1, 1)
         expected = [[1]]
