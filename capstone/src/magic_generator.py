@@ -8,6 +8,7 @@ import uuid
 import json
 import time
 import glob
+import multiprocessing
 from typing import Any
 
 VALID_DATA_TYPES = {'str', 'int', 'timestamp'}
@@ -427,18 +428,51 @@ def save_data_to_file(data: list[dict], file_path: str) -> None:
         logging.error(f"Error saving data to file {file_path}: {e}")
         sys.exit(1)
 
+def worker_generate_files(args: tuple) -> None:
+    (file_indices, path_to_save_files, file_name, file_prefix,
+     data_lines, data_schema, files_count) = args
+
+    for i in file_indices:
+        data = generate_data_lines(data_schema, data_lines)
+
+        filename = generate_file_name(file_name, file_prefix, files_count, i)
+        file_path = os.path.join(path_to_save_files, filename)
+
+        save_data_to_file(data, file_path)
+
+def distribute_files_across_processes(files_count: int, process_count: int) -> list[list[int]]:
+    files_per_process = files_count // process_count
+    remainder = files_count % process_count
+
+    file_distribution = []
+    current_index = 1
+
+    for i in range(process_count):
+        files_for_this_process = files_per_process + (1 if i < remainder else 0)
+
+        if files_for_this_process > 0:
+            file_indices = list(range(current_index, current_index + files_for_this_process))
+            file_distribution.append(file_indices)
+            current_index += files_for_this_process
+        else:
+            file_distribution.append([])
+
+    return file_distribution
 
 def generate_and_save_data(args: dict) -> None:
     if args['clear_path']:
         clear_existing_files(args['path_to_save_files'], args['file_name'])
 
-    data = generate_data_lines(args['data_schema'], args['data_lines'])
-
     if args['files_count'] == 0:
         logging.info("Printing generated data to console (files_count = 0)")
+        data = generate_data_lines(args['data_schema'], args['data_lines'])
         print_data_to_console(data)
-    else:
+        return
+
+    if args['multiprocessing'] <= 1:
+        logging.info("Using single process for file generation")
         for i in range(1, args['files_count'] + 1):
+            data = generate_data_lines(args['data_schema'], args['data_lines'])
             filename = generate_file_name(
                 args['file_name'],
                 args['file_prefix'],
@@ -446,11 +480,33 @@ def generate_and_save_data(args: dict) -> None:
                 i
             )
             file_path = os.path.join(args['path_to_save_files'], filename)
-
-            if i > 1:
-                data = generate_data_lines(args['data_schema'], args['data_lines'])
-
             save_data_to_file(data, file_path)
+        return
+
+    logging.info(f"Using {args['multiprocessing']} processes for file generation")
+
+    file_distribution = distribute_files_across_processes(args['files_count'], args['multiprocessing'])
+
+    worker_args = []
+    for file_indices in file_distribution:
+        if file_indices:
+            worker_args.append((
+                file_indices,
+                args['path_to_save_files'],
+                args['file_name'],
+                args['file_prefix'],
+                args['data_lines'],
+                args['data_schema'],
+                args['files_count']
+            ))
+
+    if worker_args:
+        with multiprocessing.Pool(processes=len(worker_args)) as pool:
+            pool.map(worker_generate_files, worker_args)
+            pool.close()
+            pool.join()
+
+    logging.info(f"Successfully generated {args['files_count']} files using {len(worker_args)} processes")
 
 def error_and_exit(msg: str) -> None:
     logging.error(msg)
@@ -458,16 +514,10 @@ def error_and_exit(msg: str) -> None:
 
 def main():
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+
     parser = create_parser()
     args = parser.parse_args()
-
     validated_args = validate_all_arguments(args)
-
-    logging.info(f"Files will be saved to: {validated_args['path_to_save_files']}")
-    logging.info(f"There will be {validated_args['files_count']} files created.")
-    logging.info(f"There will be {validated_args['data_lines']} lines in file created.")
-    logging.info(f"There will be {validated_args['multiprocessing']} processes created.")
-
     generate_and_save_data(validated_args)
 
 if __name__ == "__main__":
