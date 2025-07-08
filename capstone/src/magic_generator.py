@@ -7,6 +7,7 @@ import random
 import uuid
 import json
 import time
+import glob
 from typing import Any
 
 VALID_DATA_TYPES = {'str', 'int', 'timestamp'}
@@ -203,7 +204,7 @@ def validate_data_schema(schema: dict[str, str]) -> dict[str, str]:
 def validate_schema_field(key: str, raw_value: str) -> None:
     if ":" not in raw_value:
         error_and_exit(
-            f"Schema value for key '{key}' must contain a colon (type:instruction). "
+            f"Schema value for type of data '{raw_value}' must contain a colon (type:instruction). "
             "See --help for examples."
         )
 
@@ -332,7 +333,7 @@ def validate_all_arguments(args: argparse.Namespace) -> dict:
 
     data_schema = load_json_data_schema(args.data_schema)
     validated_data_schema = validate_data_schema(data_schema)
-    logging.info(f"Provided data_schema argument: {validated_data_lines} is valid.")
+    logging.info(f"Provided data_schema argument: {validated_data_schema} is valid.")
 
     validated_multiprocessing = validate_multiprocessing(args.multiprocessing)
     logging.info(f"Provided multiprocessing argument: {validated_multiprocessing} is valid.")
@@ -380,6 +381,77 @@ def generate_file_name(file_name: str, file_prefix: str, files_count: int, index
     else:
         return f"{file_name}_{index}.json"
 
+def generate_data_record(data_schema: dict[str, str]) -> dict:
+    record = {}
+    for key, raw_value in data_schema.items():
+        type_part, instruction_part = (part.strip() for part in raw_value.split(":", 1))
+        record[key] = generate_value(type_part, instruction_part)
+    return record
+
+def generate_data_lines(data_schema: dict[str, str], data_lines: int) -> list[dict]:
+    return [generate_data_record(data_schema) for _ in range(data_lines)]
+
+def clear_existing_files(path_to_save_files: str, file_name: str) -> None:
+    pattern = os.path.join(path_to_save_files, f"{file_name}*.json")
+    existing_files = glob.glob(pattern)
+
+    if existing_files:
+        logging.info(f"Clearing {len(existing_files)} existing files matching pattern: {file_name}*.json")
+        for file_path in existing_files:
+            try:
+                os.remove(file_path)
+                logging.debug(f"Deleted file: {file_path}")
+            except OSError as e:
+                logging.error(f"Failed to delete file {file_path}: {e}")
+                sys.exit(1)
+        logging.info(f"Successfully cleared {len(existing_files)} existing files")
+    else:
+        logging.info(f"No existing files found matching pattern: {file_name}*.json")
+
+
+def print_data_to_console(data: list[dict]) -> None:
+    try:
+        for record in data:
+            print(json.dumps(record, indent=2))
+    except Exception as e:
+        logging.error(f"Error printing data to console: {e}")
+        sys.exit(1)
+
+
+def save_data_to_file(data: list[dict], file_path: str) -> None:
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2)
+        logging.info(f"Successfully saved {len(data)} records to: {file_path}")
+    except Exception as e:
+        logging.error(f"Error saving data to file {file_path}: {e}")
+        sys.exit(1)
+
+
+def generate_and_save_data(args: dict) -> None:
+    if args['clear_path']:
+        clear_existing_files(args['path_to_save_files'], args['file_name'])
+
+    data = generate_data_lines(args['data_schema'], args['data_lines'])
+
+    if args['files_count'] == 0:
+        logging.info("Printing generated data to console (files_count = 0)")
+        print_data_to_console(data)
+    else:
+        for i in range(1, args['files_count'] + 1):
+            filename = generate_file_name(
+                args['file_name'],
+                args['file_prefix'],
+                args['files_count'],
+                i
+            )
+            file_path = os.path.join(args['path_to_save_files'], filename)
+
+            if i > 1:
+                data = generate_data_lines(args['data_schema'], args['data_lines'])
+
+            save_data_to_file(data, file_path)
+
 def error_and_exit(msg: str) -> None:
     logging.error(msg)
     sys.exit(1)
@@ -395,6 +467,8 @@ def main():
     logging.info(f"There will be {validated_args['files_count']} files created.")
     logging.info(f"There will be {validated_args['data_lines']} lines in file created.")
     logging.info(f"There will be {validated_args['multiprocessing']} processes created.")
+
+    generate_and_save_data(validated_args)
 
 if __name__ == "__main__":
     main()
