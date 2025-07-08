@@ -187,13 +187,13 @@ def load_json_data_schema(schema_input: str) -> dict[str, str]:
 
 def validate_data_schema(schema: dict[str, str]) -> dict[str, str]:
     if not isinstance(schema, dict):
-        _error_and_exit(
+        error_and_exit(
             "Invalid data schema format. It must be a JSON object (dictionary).\n"
             "See --help for examples."
         )
 
     if not schema:
-        _error_and_exit("Data schema cannot be empty")
+        error_and_exit("Data schema cannot be empty")
 
     for key, raw_value in schema.items():
         validate_schema_field(key, raw_value)
@@ -202,7 +202,7 @@ def validate_data_schema(schema: dict[str, str]) -> dict[str, str]:
 
 def validate_schema_field(key: str, raw_value: str) -> None:
     if ":" not in raw_value:
-        _error_and_exit(
+        error_and_exit(
             f"Schema value for key '{key}' must contain a colon (type:instruction). "
             "See --help for examples."
         )
@@ -215,7 +215,7 @@ def validate_schema_field(key: str, raw_value: str) -> None:
 
 def validate_type_part(key: str, type_part: str, raw_value: str) -> None:
     if type_part not in VALID_DATA_TYPES:
-        _error_and_exit(
+        error_and_exit(
             f"Invalid type '{type_part}' in key '{key}' (value: '{raw_value}'). "
             f"Supported types: {', '.join(VALID_DATA_TYPES)}.\n"
             "Please check --help for the proper format."
@@ -224,8 +224,9 @@ def validate_type_part(key: str, type_part: str, raw_value: str) -> None:
 def validate_instruction_part(key: str, type_part: str, instruction_part: str, raw_value: str) -> None:
     if type_part == "timestamp":
         if instruction_part:
-            logging.warning(
-                f"Key '{key}': timestamp ignores any value; '{instruction_part}' will be ignored."
+            error_and_exit(
+                f"Key '{key}': timestamp type does not accept any instructions. "
+                f"Value '{instruction_part}' which will be ignored."
             )
         return
 
@@ -249,14 +250,14 @@ def validate_instruction_part(key: str, type_part: str, instruction_part: str, r
 
 def validate_rand_instruction(key: str, type_part: str, raw_value: str) -> None:
     if type_part not in VALID_RAND_INSTRUCTION_DATA_TYPES:
-        _error_and_exit(
+        error_and_exit(
             f"'rand' instruction is only valid for str or int "
             f"(error in key '{key}', value '{raw_value}')."
         )
 
 def validate_rand_range_instruction(key: str, type_part: str, instruction_part: str, raw_value: str) -> None:
     if type_part != "int":
-        _error_and_exit(
+        error_and_exit(
             f"rand(from, to) is only valid for int type "
             f"(error in key '{key}', value '{raw_value}')."
         )
@@ -266,13 +267,13 @@ def validate_rand_range_instruction(key: str, type_part: str, instruction_part: 
         lower_bound, upper_bound = int(lower_str), int(upper_str)
 
         if lower_bound > upper_bound:
-            _error_and_exit(
+            error_and_exit(
                 f"Invalid range rand({lower_bound}, {upper_bound}) in key '{key}'. "
                 "Lower bound must not exceed upper bound."
             )
 
     except (ValueError, IndexError):
-        _error_and_exit(
+        error_and_exit(
             f"Invalid format in rand(from, to) at key '{key}'. "
             "Example: int:rand(1, 90)"
         )
@@ -282,29 +283,29 @@ def validate_list_instruction(key: str, type_part: str, instruction_part: str) -
         items = json.loads(instruction_part.replace("'", '"'))
 
         if not isinstance(items, list):
-            _error_and_exit(
+            error_and_exit(
                 f"Instruction in key '{key}' must be a list when in [...] form."
             )
 
         if type_part == "str" and not all(isinstance(x, str) for x in items):
-            _error_and_exit(
+            error_and_exit(
                 f"All elements in list for key '{key}' must be strings (type is str)."
             )
 
         if type_part == "int" and not all(isinstance(x, int) for x in items):
-            _error_and_exit(
+            error_and_exit(
                 f"All elements in list for key '{key}' must be ints (type is int)."
             )
 
     except json.JSONDecodeError:
-        _error_and_exit(
+        error_and_exit(
             f"List instruction in key '{key}' must be valid JSON/array syntax."
         )
 
 def validate_constant_instruction(key: str, type_part: str, instruction: str) -> None:
     if type_part == "str":
         if instruction == "rand":
-            _error_and_exit(
+            error_and_exit(
                 f"Schema value for key '{key}' is invalid: '{instruction}'. "
                 "It must contain a colon (type:instruction). "
                 "See --help for examples."
@@ -314,7 +315,7 @@ def validate_constant_instruction(key: str, type_part: str, instruction: str) ->
     try:
         int(instruction)
     except ValueError:
-        _error_and_exit(
+        error_and_exit(
             f"Invalid format in key '{key}'. Expected format: type:instruction. "
             "See --help for examples."
         )
@@ -379,7 +380,7 @@ def generate_file_name(file_name: str, file_prefix: str, files_count: int, index
     else:
         return f"{file_name}_{index}.json"
 
-def _error_and_exit(msg: str) -> None:
+def error_and_exit(msg: str) -> None:
     logging.error(msg)
     sys.exit(1)
 
