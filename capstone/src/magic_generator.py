@@ -414,7 +414,7 @@ def print_data_to_console(data: list[dict]) -> None:
     try:
         for record in data:
             print(json.dumps(record, indent=2))
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         logging.error(f"Error printing data to console: {e}")
         sys.exit(1)
 
@@ -424,7 +424,7 @@ def save_data_to_file(data: list[dict], file_path: str) -> None:
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=2)
         logging.info(f"Successfully saved {len(data)} records to: {file_path}")
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logging.error(f"Error saving data to file {file_path}: {e}")
         sys.exit(1)
 

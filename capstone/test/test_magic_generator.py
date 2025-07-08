@@ -263,3 +263,60 @@ class TestGenerateValue:
         result = magic_generator.generate_value("str", '["123", "456"]')
         assert result in ["123", "456"]
         assert isinstance(result, str)
+
+class TestGenerateDataRecord:
+    def test_single_field_string(self, monkeypatch):
+        monkeypatch.setattr("capstone.src.magic_generator.generate_value",
+                            lambda t, i: "test_string")
+
+        schema = {"name": "string:random"}
+        record = magic_generator.generate_data_record(schema)
+
+        assert record == {"name": "test_string"}
+
+class TestOutputOperations:
+    def test_print_data_to_console(self, capfd):
+        data = [{"name": "Jacob"}, {"name": "Bob"}]
+        magic_generator.print_data_to_console(data)
+
+        out, err = capfd.readouterr()
+        assert '"name": "Jacob"' in out
+        assert '"name": "Bob"' in out
+
+    def test_saves_data_successfully(self, tmp_path):
+        data = [{"city": "Cracow"}, {"city": "London"}]
+        file_path = tmp_path.joinpath("output.json")
+
+        magic_generator.save_data_to_file(data, str(file_path))
+
+        with open(file_path) as f:
+            saved = json.load(f)
+
+        assert saved == data
+
+class TestMultiprocessingLogic:
+    # distribute_files_across_processes
+    def test_single_file_and_process(self):
+        result = magic_generator.distribute_files_across_processes(1, 1)
+        expected = [[1]]
+        assert result == expected
+
+    def test_even_distribution(self):
+        result = magic_generator.distribute_files_across_processes(10, 5)
+        expected = [
+            [1, 2],
+            [3, 4],
+            [5, 6],
+            [7, 8],
+            [9, 10]
+        ]
+        assert result == expected
+
+    def test_uneven_distribution(self):
+        result = magic_generator.distribute_files_across_processes(10, 3)
+        expected = [
+            [1, 2, 3, 4],
+            [5, 6, 7],
+            [8, 9, 10]
+        ]
+        assert result == expected
