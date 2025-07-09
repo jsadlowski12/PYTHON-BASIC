@@ -37,11 +37,11 @@ def test_parse_value(raw, expected):
 MOST_ACTIVE_HTML = """
 <table>
   <tr class="row yf-ao6als">
-    <td><span class="symbol yf-hwu3c7">ABC</span></td>
+    <td><span class="symbol yf-90gdtp">ABC</span></td>
     <td><div class="leftAlignHeader companyName yf-362rys enableMaxWidth">ABC Corp</div></td>
   </tr>
   <tr class="row yf-ao6als">
-    <td><span class="symbol yf-hwu3c7">XYZ</span></td>
+    <td><span class="symbol yf-90gdtp">XYZ</span></td>
     <td><div class="leftAlignHeader companyName yf-362rys enableMaxWidth">XYZ Ltd</div></td>
   </tr>
 </table>
@@ -66,17 +66,15 @@ PROFILE_ABC = """
 PROFILE_XYZ = PROFILE_ABC.replace("United States", "Canada").replace("10000", "5000")\
                           .replace("John Doe", "Jane Smith").replace("1985", "1990")
 
-HOLDERS_ABC = """
+HOLDERS_HTML = """
 <section data-testid="holders-top-institutional-holders">
   <table class="yf-idy1mk"><tbody>
     <tr class="yf-idy1mk"><td>Blackrock Inc.</td><td>50,000,000</td><td>2024‑12‑31</td><td>5.0%</td><td>$15.0B</td></tr>
     <tr class="yf-idy1mk"><td>Someone Else</td><td>1</td><td>2024‑12‑31</td><td>0.01%</td><td>$1.0M</td></tr>
+    <tr class="yf-idy1mk"><td>Blackrock Canada</td><td>30,000,000</td><td>2024‑12‑31</td><td>3.0%</td><td>$9.0B</td></tr>
   </tbody></table>
 </section>
 """
-
-HOLDERS_XYZ = HOLDERS_ABC.replace("50,000,000", "30,000,000")\
-                         .replace("$15.0B", "$9.0B").replace("5.0%", "3.0%")
 
 def fake_make_request(url: str):
     if "most-active" in url:
@@ -85,10 +83,8 @@ def fake_make_request(url: str):
         code = url.split("/quote/")[1].split("/")[0]
         html = PROFILE_ABC if code == "ABC" else PROFILE_XYZ
         return BeautifulSoup(html, "html.parser")
-    if "/holders" in url:
-        code = url.split("/quote/")[1].split("/")[0]
-        html = HOLDERS_ABC if code == "ABC" else HOLDERS_XYZ
-        return BeautifulSoup(html, "html.parser")
+    if "holders" in url:
+        return BeautifulSoup(HOLDERS_HTML, "html.parser")
     raise ValueError(f"unhandled URL {url!r}")
 
 @pytest.fixture
@@ -108,8 +104,10 @@ def test_get_youngest_ceos_from_profile_tab(patch_requests):
     assert result["Employees"] == ["5000", "10000"]
 
 def test_get_largest_blackrock_holds(patch_requests):
-    holds = res.get_largest_blackrock_holds(STOCK_CODES)
+    holds = res.get_largest_blackrock_holds()
 
-    assert holds["Code"] == ["ABC", "XYZ"]
-    assert holds["Shares"][0] == "50,000,000"
-    assert holds["Value"][1] == "$9.0B"
+    assert holds["Name"] == ["Blackrock Inc.", "Blackrock Canada", "Someone Else"]
+    assert holds["Shares"] == ["50,000,000", "30,000,000", "1"]
+    assert holds["Value"] == ["$15.0B", "$9.0B", "$1.0M"]
+    assert holds["% Out"] == ["5.0%", "3.0%", "0.01%"]
+    assert holds["Date Reported"] == ["2024‑12‑31"] * 3

@@ -235,7 +235,7 @@ def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
 
     return stock_data
 
-def get_largest_blackrock_holds(stock_codes: dict) -> dict:
+def get_largest_blackrock_holds() -> dict:
     all_data = []
 
     soup = make_request(STOCK_HOLDERS_TAB_URL)
@@ -356,7 +356,7 @@ def main():
     # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
     # print(sheet)
 
-    largest_blackrock_holders = get_largest_blackrock_holds(codes)
+    largest_blackrock_holders = get_largest_blackrock_holds()
 
     headers = ["Name", "Shares", "Date Reported", "% Out", "Value"]
     rows = list(zip(
