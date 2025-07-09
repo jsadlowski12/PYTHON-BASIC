@@ -35,6 +35,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import random
+import logging
 
 USER_AGENTS = [
     'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
@@ -59,10 +60,10 @@ def make_request(url: str) -> BeautifulSoup:
     }
     try:
         time.sleep(2)
-        #print(f"Using User-Agent: {user_agent}")
+        print(f"Using User-Agent: {user_agent}")
         response = requests.get(url, headers=headers, timeout=15)
-        #print(f"Requested URL: {response.url}")
-        #print(f"Status code: {response.status_code}")
+        print(f"Requested URL: {response.url}")
+        print(f"Status code: {response.status_code}")
         response.raise_for_status()
         return BeautifulSoup(response.content, "html.parser")
     except requests.exceptions.HTTPError as e:
@@ -71,17 +72,51 @@ def make_request(url: str) -> BeautifulSoup:
         raise RequestRefusedException(f"Network error: {e}")
 
 
-def get_stock_codes() -> dict:
-    soup = make_request(MOST_ACTIVE_STOCKS_URL)
+def get_stock_codes_from_page(soup: BeautifulSoup) -> dict:
     rows = soup.find_all("tr", class_="row yf-ao6als")
     stock_codes = {}
 
     for row in rows:
-        code = row.find("span", class_="symbol yf-hwu3c7")
-        company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
-        stock_codes[code.text.rstrip()] = company_name.text.rstrip()
+        code_element = row.find("span", class_="symbol yf-90gdtp")
+        company_element = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
+
+        if code_element and company_element:
+            stock_codes[code_element.text.strip()] = company_element.text.strip()
 
     return stock_codes
+
+def get_stock_codes() -> dict:
+    all_stocks = {}
+    start = 0
+    count = 200
+
+    while True:
+        url = f"{MOST_ACTIVE_STOCKS_URL}?start={start}&count={count}"
+        logging.info(f"Fetching page (start={start}, count={count})")
+
+        try:
+            soup = make_request(url)
+            page_stocks = get_stock_codes_from_page(soup)
+
+            if not page_stocks:
+                logging.info("No more stocks found. Stopping.")
+                break
+
+            logging.info(f"Found {len(page_stocks)} stocks on page")
+            all_stocks.update(page_stocks)
+
+            if len(page_stocks) < count:
+                logging.info("Reached end of available stocks.")
+                break
+
+            start += count
+
+        except RequestRefusedException as e:
+            logging.error(f"Request failed: {e}")
+            break
+
+    logging.info(f"Total stocks collected: {len(all_stocks)}")
+    return all_stocks
 
 def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
     all_data = []
@@ -89,23 +124,24 @@ def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
     for code, name in stock_codes.items():
         soup = make_request(STOCK_PROFILE_TAB_URL.format(code=code))
 
-        country = soup.find("div", class_="address yf-wxp4ja").find_all("div")[-1].text
+        country_element = soup.find("div", class_="address yf-wxp4ja")
+        country = country_element.find_all("div")[-1].text.strip() if country_element and country_element.find_all("div") else "N/A"
 
         employees_count = soup.find("dl", class_="company-stats yf-wxp4ja")
-        employees = employees_count.find("strong").text if employees_count and employees_count.find("strong") else "N/A"
+        employees = employees_count.find("strong").text.strip() if employees_count and employees_count.find("strong") else "N/A"
 
         employee_table = soup.find("div", class_="table-container yf-mj92za")
-        table_body = employee_table.find("tbody")
-        first_row = table_body.find("tr", class_="yf-mj92za")
-        first_row = first_row.find_all("td", class_="yf-mj92za")
-        ceo_name = first_row[0].text.strip()
-        year_text = first_row[-1].text.strip()
+        table_body = employee_table.find("tbody") if employee_table else None
+        first_row = table_body.find("tr", class_="yf-mj92za") if table_body else None
+        first_row_cells = first_row.find_all("td", class_="yf-mj92za") if first_row else None
+        ceo_name = first_row_cells[0].text.strip() if first_row_cells and first_row_cells[0].text.strip() else "N/A"
+        year_text = first_row_cells[-1].text.strip() if first_row_cells and first_row_cells[-1].text.strip() else "N/A"
         ceo_year = int(year_text) if year_text.isdigit() else "N/A"
 
         if ceo_year != "N/A":
             all_data.append({
-                "Name": name,
-                "Code": code,
+                "Name": name.strip() if name and name.strip() else "N/A",
+                "Code": code.strip() if code and code.strip() else "N/A",
                 "Country": country,
                 "Employees": employees,
                 "CEO Name": ceo_name,
@@ -278,6 +314,8 @@ def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str
     return "\n".join(sheet_lines) + "\n"
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     codes = get_stock_codes()
     youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
 
@@ -294,33 +332,33 @@ def main():
     sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     print(sheet)
 
-    best_statistics = get_stocks_with_best_statistics(codes)
-
-    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
-    rows = list(zip(
-        best_statistics["Name"],
-        best_statistics["Code"],
-        best_statistics["52 Week Change"],
-        best_statistics["Total Cash"],
-    ))
-
-    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
-    print(sheet)
-
-    largest_blackrock_holders = get_largest_blackrock_holds(codes)
-
-    headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
-    rows = list(zip(
-        largest_blackrock_holders["Name"],
-        largest_blackrock_holders["Code"],
-        largest_blackrock_holders["Shares"],
-        largest_blackrock_holders["Date Reported"],
-        largest_blackrock_holders["% Out"],
-        largest_blackrock_holders["Value"],
-    ))
-
-    sheet = generate_sheet("10 largest holds of Blackrock Inc.", headers, rows)
-    print(sheet)
+    # best_statistics = get_stocks_with_best_statistics(codes)
+    #
+    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    # rows = list(zip(
+    #     best_statistics["Name"],
+    #     best_statistics["Code"],
+    #     best_statistics["52 Week Change"],
+    #     best_statistics["Total Cash"],
+    # ))
+    #
+    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    # print(sheet)
+    #
+    # largest_blackrock_holders = get_largest_blackrock_holds(codes)
+    #
+    # headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
+    # rows = list(zip(
+    #     largest_blackrock_holders["Name"],
+    #     largest_blackrock_holders["Code"],
+    #     largest_blackrock_holders["Shares"],
+    #     largest_blackrock_holders["Date Reported"],
+    #     largest_blackrock_holders["% Out"],
+    #     largest_blackrock_holders["Value"],
+    # ))
+    #
+    # sheet = generate_sheet("10 largest holds of Blackrock Inc.", headers, rows)
+    # print(sheet)
 
 if __name__ == "__main__":
     main()
