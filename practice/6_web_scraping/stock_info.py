@@ -183,13 +183,6 @@ def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
 
     return stock_data
 
-def parse_percent(pct_str: str) -> float:
-    try:
-        return float(pct_str.strip('%').replace(',', ''))
-    except (AttributeError, ValueError, TypeError):
-        return float('-inf')
-
-
 def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
     all_data = []
 
@@ -242,20 +235,6 @@ def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
 
     return stock_data
 
-def parse_value(value_str: str) -> float:
-    try:
-        value_str = value_str.strip('$').upper().replace(',', '')
-        if value_str.endswith('B'):
-            return float(value_str[:-1]) * 1_000_000_000
-        elif value_str.endswith('M'):
-            return float(value_str[:-1]) * 1_000_000
-        elif value_str.endswith('K'):
-            return float(value_str[:-1]) * 1_000
-        else:
-            return float(value_str)
-    except (ValueError, AttributeError, TypeError):
-        return float('-inf')
-
 def get_largest_blackrock_holds(stock_codes: dict) -> dict:
     all_data = []
 
@@ -279,30 +258,19 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
         out = columns[3].text.strip()
         value = columns[4].text.strip()
 
-        matched_code = None
-        matched_name = None
-        for code, name in stock_codes.items():
-            if name.lower() in holder_name.lower():
-                matched_code = code
-                matched_name = name
-                break
-
-        if matched_code and matched_name:
-            all_data.append({
-                "Name": matched_name,
-                "Code": matched_code,
-                "Shares": shares,
-                "Date Reported": date_reported,
-                "% Out": out,
-                "Value": value
-            })
+        all_data.append({
+            "Name": holder_name,
+            "Shares": shares,
+            "Date Reported": date_reported,
+            "% Out": out,
+            "Value": value
+        })
 
     sorted_holdings = sorted(all_data, key=lambda h: parse_value(h["Value"]), reverse=True)
     top_ten = sorted_holdings[:10]
 
     holds_data = {
         "Name": [c["Name"] for c in top_ten],
-        "Code": [c["Code"] for c in top_ten],
         "Shares": [c["Shares"] for c in top_ten],
         "Date Reported": [c["Date Reported"] for c in top_ten],
         "% Out": [c["% Out"] for c in top_ten],
@@ -310,6 +278,26 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
     }
 
     return holds_data
+
+def parse_value(value_str: str) -> float:
+    try:
+        value_str = value_str.strip('$').upper().replace(',', '')
+        if value_str.endswith('B'):
+            return float(value_str[:-1]) * 1_000_000_000
+        elif value_str.endswith('M'):
+            return float(value_str[:-1]) * 1_000_000
+        elif value_str.endswith('K'):
+            return float(value_str[:-1]) * 1_000
+        else:
+            return float(value_str)
+    except (ValueError, AttributeError, TypeError):
+        return float('-inf')
+
+def parse_percent(pct_str: str) -> float:
+    try:
+        return float(pct_str.strip('%').replace(',', ''))
+    except (AttributeError, ValueError, TypeError):
+        return float('-inf')
 
 def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str:
     col_widths = [len(header) for header in headers]
@@ -370,10 +358,9 @@ def main():
 
     largest_blackrock_holders = get_largest_blackrock_holds(codes)
 
-    headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
+    headers = ["Name", "Shares", "Date Reported", "% Out", "Value"]
     rows = list(zip(
         largest_blackrock_holders["Name"],
-        largest_blackrock_holders["Code"],
         largest_blackrock_holders["Shares"],
         largest_blackrock_holders["Date Reported"],
         largest_blackrock_holders["% Out"],

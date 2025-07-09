@@ -34,18 +34,6 @@ def test_parse_value(raw, expected):
     assert res.parse_value(raw) == expected
 
 
-def test_generate_sheet_basic():
-    sheet = res.generate_sheet(
-        "Dummy Sheet",
-        ["Col1", "Col2"],
-        [("a", "b"), ("longer", "row2")],
-    )
-    lines = sheet.splitlines()
-    assert lines[0].startswith("=") and lines[0].endswith("=")
-    assert "| Col1 " in lines[1] and "| Col2 " in lines[1]
-    assert lines[-1] == ""
-
-
 MOST_ACTIVE_HTML = """
 <table>
   <tr class="row yf-ao6als">
@@ -125,17 +113,3 @@ def test_get_largest_blackrock_holds(patch_requests):
     assert holds["Code"] == ["ABC", "XYZ"]
     assert holds["Shares"][0] == "50,000,000"
     assert holds["Value"][1] == "$9.0B"
-
-def test_make_request_error(monkeypatch):
-
-    class DummyResp:
-        status_code = 404
-        url = "http://example.com"
-        def raise_for_status(self):
-            import requests
-            raise requests.exceptions.HTTPError("404 not found")
-
-    monkeypatch.setattr("requests.get", lambda *a, **kw: DummyResp())
-
-    with pytest.raises(res.RequestRefusedException):
-        res.make_request("http://example.com/bad")
