@@ -46,7 +46,7 @@ USER_AGENTS = [
 MOST_ACTIVE_STOCKS_URL = "https://finance.yahoo.com/markets/stocks/most-active"
 STOCK_PROFILE_TAB_URL = "https://finance.yahoo.com/quote/{code}/profile"
 STOCK_STATISTICS_TAB_URL = "https://finance.yahoo.com/quote/{code}/key-statistics"
-STOCK_HOLDERS_TAB_URL = "https://finance.yahoo.com/quote/{code}/holders"
+STOCK_HOLDERS_TAB_URL = "https://finance.yahoo.com/quote/BLK/holders"
 
 class RequestRefusedException(Exception):
     pass
@@ -256,44 +256,46 @@ def parse_value(value_str: str) -> float:
     except (ValueError, AttributeError, TypeError):
         return float('-inf')
 
-
 def get_largest_blackrock_holds(stock_codes: dict) -> dict:
     all_data = []
 
-    for code, name in stock_codes.items():
-        soup = make_request(STOCK_HOLDERS_TAB_URL.format(code=code))
+    soup = make_request(STOCK_HOLDERS_TAB_URL)
 
-        top_institutional_holders_section = soup.find("section",
-                                                      attrs={"data-testid": "holders-top-institutional-holders"})
-        holders_table = top_institutional_holders_section.find("table", class_="yf-idy1mk")
-        holders_table_body = holders_table.find("tbody")
-        rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
+    top_institutional_holders_section = soup.find(
+        "section", attrs={"data-testid": "holders-top-institutional-holders"}
+    )
+    holders_table = top_institutional_holders_section.find("table", class_="yf-idy1mk")
+    holders_table_body = holders_table.find("tbody")
+    rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
 
-        shares = "N/A"
-        date_reported = "N/A"
-        out = "N/A"
-        value = "N/A"
+    for row in rows:
+        columns = row.find_all("td")
+        if not columns or len(columns) < 5:
+            continue
 
-        for row in rows:
-            columns = row.find_all("td")
-            if columns:
-                holder_name = columns[0].text.strip()
-                holder_normalised = " ".join(holder_name.split()).lower()
-                if holder_normalised == "blackrock inc.":
-                    shares = columns[1].text.strip()
-                    date_reported = columns[2].text.strip()
-                    out = columns[3].text.strip()
-                    value = columns[4].text.strip()
-                    break
+        holder_name = columns[0].text.strip()
+        shares = columns[1].text.strip()
+        date_reported = columns[2].text.strip()
+        out = columns[3].text.strip()
+        value = columns[4].text.strip()
 
-        all_data.append({
-            "Name": name,
-            "Code": code,
-            "Shares": shares,
-            "Date Reported": date_reported,
-            "% Out": out,
-            "Value": value
-        })
+        matched_code = None
+        matched_name = None
+        for code, name in stock_codes.items():
+            if name.lower() in holder_name.lower():
+                matched_code = code
+                matched_name = name
+                break
+
+        if matched_code and matched_name:
+            all_data.append({
+                "Name": matched_name,
+                "Code": matched_code,
+                "Shares": shares,
+                "Date Reported": date_reported,
+                "% Out": out,
+                "Value": value
+            })
 
     sorted_holdings = sorted(all_data, key=lambda h: parse_value(h["Value"]), reverse=True)
     top_ten = sorted_holdings[:10]
@@ -353,33 +355,33 @@ def main():
     # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     # print(sheet)
 
-    best_statistics = get_stocks_with_best_statistics(codes)
-
-    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
-    rows = list(zip(
-        best_statistics["Name"],
-        best_statistics["Code"],
-        best_statistics["52 Week Change"],
-        best_statistics["Total Cash"],
-    ))
-
-    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
-    print(sheet)
+    # best_statistics = get_stocks_with_best_statistics(codes)
     #
-    # largest_blackrock_holders = get_largest_blackrock_holds(codes)
-    #
-    # headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
+    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
     # rows = list(zip(
-    #     largest_blackrock_holders["Name"],
-    #     largest_blackrock_holders["Code"],
-    #     largest_blackrock_holders["Shares"],
-    #     largest_blackrock_holders["Date Reported"],
-    #     largest_blackrock_holders["% Out"],
-    #     largest_blackrock_holders["Value"],
+    #     best_statistics["Name"],
+    #     best_statistics["Code"],
+    #     best_statistics["52 Week Change"],
+    #     best_statistics["Total Cash"],
     # ))
     #
-    # sheet = generate_sheet("10 largest holds of Blackrock Inc.", headers, rows)
+    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
     # print(sheet)
+
+    largest_blackrock_holders = get_largest_blackrock_holds(codes)
+
+    headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
+    rows = list(zip(
+        largest_blackrock_holders["Name"],
+        largest_blackrock_holders["Code"],
+        largest_blackrock_holders["Shares"],
+        largest_blackrock_holders["Date Reported"],
+        largest_blackrock_holders["% Out"],
+        largest_blackrock_holders["Value"],
+    ))
+
+    sheet = generate_sheet("10 largest holds of Blackrock Inc.", headers, rows)
+    print(sheet)
 
 if __name__ == "__main__":
     main()
