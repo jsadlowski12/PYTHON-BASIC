@@ -51,26 +51,46 @@ STOCK_HOLDERS_TAB_URL = "https://finance.yahoo.com/quote/{code}/holders"
 class RequestRefusedException(Exception):
     pass
 
-def make_request(url: str) -> BeautifulSoup:
-    user_agent = random.choice(USER_AGENTS)
-    headers = {
-        "User-Agent": user_agent,
-        "Accept-Language": "en-US,en;q=0.9",
-        "Connection": "keep-alive"
-    }
-    try:
-        time.sleep(2)
-        print(f"Using User-Agent: {user_agent}")
-        response = requests.get(url, headers=headers, timeout=15)
-        print(f"Requested URL: {response.url}")
-        print(f"Status code: {response.status_code}")
-        response.raise_for_status()
-        return BeautifulSoup(response.content, "html.parser")
-    except requests.exceptions.HTTPError as e:
-        raise RequestRefusedException(f"HTTP error: {e}")
-    except requests.exceptions.RequestException as e:
-        raise RequestRefusedException(f"Network error: {e}")
+def make_request(url: str, max_retries: int = 5) -> BeautifulSoup:
+    attempt = 0
+    backoff = 1
 
+    while attempt < max_retries:
+        user_agent = random.choice(USER_AGENTS)
+        headers = {
+            "User-Agent": user_agent,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive"
+        }
+
+        try:
+            time.sleep(0.5)
+            logging.info(f"[Attempt {attempt + 1}] Using User-Agent: {user_agent}")
+            response = requests.get(url, headers=headers, timeout=15)
+            logging.info(f"Requested URL: {response.url}")
+            logging.info(f"Status code: {response.status_code}")
+
+            if 500 <= response.status_code < 600:
+                logging.warning(f"Server error (HTTP {response.status_code}). Retrying in {backoff} seconds...")
+                time.sleep(backoff)
+                backoff *= 2
+                attempt += 1
+                continue
+
+            response.raise_for_status()
+            return BeautifulSoup(response.content, "html.parser")
+
+        except requests.exceptions.HTTPError as e:
+            logging.error(f"HTTP error: {e}")
+            raise RequestRefusedException(f"HTTP error: {e}")
+        except requests.exceptions.RequestException as e:
+            logging.warning(f"Network error: {e}. Retrying in {backoff} seconds...")
+            time.sleep(backoff)
+            backoff *= 2
+            attempt += 1
+
+    logging.error(f"Failed to retrieve {url} after {max_retries} attempts.")
+    raise RequestRefusedException(f"Failed to retrieve {url} after {max_retries} attempts.")
 
 def get_stock_codes_from_page(soup: BeautifulSoup) -> dict:
     rows = soup.find_all("tr", class_="row yf-ao6als")
@@ -317,33 +337,34 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     codes = get_stock_codes()
-    youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
 
-    headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
-    rows = list(zip(
-        youngest_ceos_data["Name"],
-        youngest_ceos_data["Code"],
-        youngest_ceos_data["Country"],
-        youngest_ceos_data["Employees"],
-        youngest_ceos_data["CEO Name"],
-        youngest_ceos_data["CEO Year Born"],
-    ))
-
-    sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
-    print(sheet)
-
-    # best_statistics = get_stocks_with_best_statistics(codes)
+    # youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
     #
-    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    # headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
     # rows = list(zip(
-    #     best_statistics["Name"],
-    #     best_statistics["Code"],
-    #     best_statistics["52 Week Change"],
-    #     best_statistics["Total Cash"],
+    #     youngest_ceos_data["Name"],
+    #     youngest_ceos_data["Code"],
+    #     youngest_ceos_data["Country"],
+    #     youngest_ceos_data["Employees"],
+    #     youngest_ceos_data["CEO Name"],
+    #     youngest_ceos_data["CEO Year Born"],
     # ))
     #
-    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     # print(sheet)
+
+    best_statistics = get_stocks_with_best_statistics(codes)
+
+    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    rows = list(zip(
+        best_statistics["Name"],
+        best_statistics["Code"],
+        best_statistics["52 Week Change"],
+        best_statistics["Total Cash"],
+    ))
+
+    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    print(sheet)
     #
     # largest_blackrock_holders = get_largest_blackrock_holds(codes)
     #
