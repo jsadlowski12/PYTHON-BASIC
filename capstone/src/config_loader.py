@@ -3,7 +3,7 @@ import sys
 import os
 import configparser
 
-def load_defaults_from_config(config_file='capstone/src/default.ini'):
+def load_defaults_from_config(config_file='capstone/resources/default.ini'):
     if not os.path.exists(config_file):
         logging.error(f"Required configuration file '{config_file}' not found.")
         sys.exit(1)

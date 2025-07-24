@@ -4,41 +4,41 @@ import uuid
 import random
 import json
 
-from capstone.src import main
+from capstone.src import arguments_validators, data_schema, generators, file_utils
 
 class TestValidatePathToSaveFilesArgument:
     @pytest.mark.parametrize("path_input", [".", ""])
     def test_current_dir(self, tmp_path, monkeypatch, path_input):
         monkeypatch.chdir(tmp_path)
-        result = main.validate_path_to_save_files(path_input)
+        result = arguments_validators.validate_path_to_save_files(path_input)
         assert result == tmp_path.as_posix()
 
     def test_absolute_path(self, tmp_path):
-        result = main.validate_path_to_save_files(tmp_path.as_posix())
+        result = arguments_validators.validate_path_to_save_files(tmp_path.as_posix())
         assert result == tmp_path.as_posix()
 
     def test_invalid_path(self):
         with pytest.raises(SystemExit) as system_info:
-            main.validate_path_to_save_files("/this/path/does/not/exist")
+            arguments_validators.validate_path_to_save_files("/this/path/does/not/exist")
         assert system_info.value.code == 1
 
     def test_is_not_a_directory(self, tmp_path):
         file_path = tmp_path.joinpath("data.txt")
         file_path.touch()  # Create the file
         with pytest.raises(SystemExit) as system_info:
-            main.validate_path_to_save_files(file_path.as_posix())
+            arguments_validators.validate_path_to_save_files(file_path.as_posix())
         assert system_info.value.code == 1
 
 
 class TestValidateFilesCountArgument:
     def test_negative_count(self):
         with pytest.raises(SystemExit) as system_info:
-            main.validate_files_count(-1)
+            arguments_validators.validate_files_count(-1)
         assert system_info.value.code == 1
 
     @pytest.mark.parametrize("files_count", [0, 1, 2, 10])
     def test_valid_counts(self, files_count):
-        result = main.validate_files_count(files_count)
+        result = arguments_validators.validate_files_count(files_count)
         assert result == files_count
 
 
@@ -46,28 +46,28 @@ class TestValidateDataLinesArgument:
     @pytest.mark.parametrize("data_lines", [-1, 0])
     def test_invalid_data_lines(self, data_lines):
         with pytest.raises(SystemExit) as system_info:
-            main.validate_data_lines(data_lines)
+            arguments_validators.validate_data_lines(data_lines)
         assert system_info.value.code == 1
 
     @pytest.mark.parametrize("data_lines", [1, 5, 1000])
     def test_valid_data_lines(self, data_lines):
-        result = main.validate_data_lines(data_lines)
+        result = arguments_validators.validate_data_lines(data_lines)
         assert result == data_lines
 
 
 class TestValidateMultiprocessingArgument:
     def test_negative_number(self):
         with pytest.raises(SystemExit) as system_info:
-            main.validate_multiprocessing(-1)
+            arguments_validators.validate_multiprocessing(-1)
         assert system_info.value.code == 1
 
     def test_valid_input(self):
-        result = main.validate_multiprocessing(2)
+        result = arguments_validators.validate_multiprocessing(2)
         assert result == 2
 
     def test_above_cpu_count(self, monkeypatch):
         monkeypatch.setattr(os, "cpu_count", lambda: 4)
-        result = main.validate_multiprocessing(10)
+        result = arguments_validators.validate_multiprocessing(10)
         assert result == 4
 
 
@@ -88,14 +88,14 @@ class TestValidateDataSchemaArgument:
     ])
     def test_schema_validation(self, schema, should_pass):
         if should_pass:
-            main.validate_data_schema(schema)
+            data_schema.validate_data_schema(schema)
         else:
             with pytest.raises(SystemExit):
-                main.validate_data_schema(schema)
+                data_schema.validate_data_schema(schema)
 
     def test_schema_not_dict(self):
         with pytest.raises(SystemExit) as system_info:
-            main.validate_data_schema("not_a_dict")
+            data_schema.validate_data_schema("not_a_dict")
         assert system_info.value.code == 1
 
     @pytest.mark.parametrize("value", [
@@ -107,19 +107,19 @@ class TestValidateDataSchemaArgument:
     def test_rand_range_bad_format(self, value):
         schema = {"score": value}
         with pytest.raises(SystemExit) as system_info:
-            main.validate_data_schema(schema)
+            data_schema.validate_data_schema(schema)
         assert system_info.value.code == 1
 
     def test_invalid_constant_int(self):
         schema = {"count": "int:forty"}
         with pytest.raises(SystemExit) as system_info:
-            main.validate_data_schema(schema)
+            data_schema.validate_data_schema(schema)
         assert system_info.value.code == 1
 
     def test_rand_range_invalid_type(self):
         schema = {"username": "str:rand(1, 3)"}
         with pytest.raises(SystemExit) as system_info:
-            main.validate_data_schema(schema)
+            data_schema.validate_data_schema(schema)
         assert system_info.value.code == 1
 
 
@@ -145,42 +145,42 @@ class TestJSONSchemaLoader:
 
     def test_correct_schema(self, valid_schema_file):
         file_path, expected_data = valid_schema_file
-        result = main.load_json_data_schema(file_path)
+        result = data_schema.load_json_data_schema(file_path)
         assert result == expected_data
 
     def test_file_not_found(self, tmp_path):
         fake_file = tmp_path.joinpath("non_existent_schema.json")
         with pytest.raises(SystemExit) as system_info:
-            main.load_json_data_schema(str(fake_file))
+            data_schema.load_json_data_schema(str(fake_file))
         assert system_info.value.code == 1
 
     def test_invalid_json_file(self, invalid_json_file):
         with pytest.raises(SystemExit) as system_info:
-            main.load_json_data_schema(invalid_json_file)
+            data_schema.load_json_data_schema(invalid_json_file)
         assert system_info.value.code == 1
 
 
 class TestGenerateFileName:
     def test_generate_file_name_single_file(self):
-        result = main.generate_file_name("test", "any", 1, 0)
+        result = generators.generate_file_name("test", "any", 1, 0)
         assert result == "test.json"
 
     def test_count_prefix(self):
-        result = main.generate_file_name("test", "count", 5, 2)
+        result = generators.generate_file_name("test", "count", 5, 2)
         assert result == "test_2"
 
     def test_random_prefix(self, monkeypatch):
         monkeypatch.setattr(random, 'randint', lambda x, y: 5678)
-        result = main.generate_file_name("test", "random", 5, 2)
+        result = generators.generate_file_name("test", "random", 5, 2)
         assert result == "test_5678.json"
 
     def test_uuid_prefix(self, monkeypatch):
         monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID("12345678-1234-5678-1234-567812345678"))
-        result = main.generate_file_name("data", "uuid", 5, 3)
+        result = generators.generate_file_name("data", "uuid", 5, 3)
         assert result == "data_12345678-1234-5678-1234-567812345678.json"
 
     def test_default_case(self):
-        result = main.generate_file_name("test", "unknown", 5, 3)
+        result = generators.generate_file_name("test", "unknown", 5, 3)
         assert result == "test_3.json"
 
 
@@ -196,23 +196,23 @@ class TestGenerateValue:
         ("timestamp", "", float),
     ])
     def test_generate_value_different_types(self, data_type, instruction, expected_type):
-        result = main.generate_value(data_type, instruction)
+        result = generators.generate_value(data_type, instruction)
         if result is not None:
             assert isinstance(result, expected_type)
 
     def test_empty_instruction_behaviors(self):
-        result = main.generate_value("str", "")
+        result = generators.generate_value("str", "")
         assert result == ""
 
-        result = main.generate_value("int", "")
+        result = generators.generate_value("int", "")
         assert result is None
 
     def test_rand_instruction_behaviors(self):
-        result = main.generate_value("str", "rand")
+        result = generators.generate_value("str", "rand")
         assert isinstance(result, str)
         uuid.UUID(result)
 
-        result = main.generate_value("int", "rand")
+        result = generators.generate_value("int", "rand")
         assert isinstance(result, int)
         assert 0 <= result <= 10000
 
@@ -221,7 +221,7 @@ class TestGenerateValue:
         ("rand( 5 , 15 )", (5, 15)),
     ])
     def test_rand_range_instruction(self, instruction, expected_range):
-        result = main.generate_value("int", instruction)
+        result = generators.generate_value("int", instruction)
         assert isinstance(result, int)
         assert expected_range[0] <= result <= expected_range[1]
 
@@ -232,7 +232,7 @@ class TestGenerateValue:
         ("str", '["hello world", "test-123", ""]', ["hello world", "test-123", ""]),
     ])
     def test_list_instruction(self, data_type, instruction, options):
-        result = main.generate_value(data_type, instruction)
+        result = generators.generate_value(data_type, instruction)
         assert result in options
 
     @pytest.mark.parametrize("data_type,instruction,expected", [
@@ -243,17 +243,17 @@ class TestGenerateValue:
         ("int", "0", 0),
     ])
     def test_constant_instruction(self, data_type, instruction, expected):
-        result = main.generate_value(data_type, instruction)
+        result = generators.generate_value(data_type, instruction)
         assert result == expected
 
 
 class TestGenerateDataRecord:
     def test_single_field_string(self, monkeypatch):
-        monkeypatch.setattr("capstone.src.main.generate_value",
+        monkeypatch.setattr("capstone.src.generators.generate_value",
                             lambda t, i: "test_string")
 
         schema = {"name": "string:random"}
-        record = main.generate_data_record(schema)
+        record = generators.generate_data_record(schema)
 
         assert record == {"name": "test_string"}
 
@@ -261,7 +261,7 @@ class TestGenerateDataRecord:
 class TestOutputOperations:
     def test_print_data_to_console(self, capfd):
         data = [{"name": "Jacob"}, {"name": "Bob"}]
-        main.print_data_to_console(data)
+        file_utils.print_data_to_console(data)
 
         out, err = capfd.readouterr()
         assert '"name": "Jacob"' in out
@@ -271,7 +271,7 @@ class TestOutputOperations:
         data = [{"city": "Cracow"}, {"city": "London"}]
         file_path = tmp_path.joinpath("output.json")
 
-        main.save_data_to_file(data, str(file_path))
+        file_utils.save_data_to_file(data, str(file_path))
 
         with open(file_path) as f:
             saved = json.load(f)
@@ -281,12 +281,12 @@ class TestOutputOperations:
 
 class TestMultiprocessingLogic:
     def test_single_file_and_process(self):
-        result = main.distribute_files_across_processes(1, 1)
+        result = generators.distribute_files_across_processes(1, 1)
         expected = [[1]]
         assert result == expected
 
     def test_even_distribution(self):
-        result = main.distribute_files_across_processes(10, 5)
+        result = generators.distribute_files_across_processes(10, 5)
         expected = [
             [1, 2],
             [3, 4],
@@ -297,7 +297,7 @@ class TestMultiprocessingLogic:
         assert result == expected
 
     def test_uneven_distribution(self):
-        result = main.distribute_files_across_processes(10, 3)
+        result = generators.distribute_files_across_processes(10, 3)
         expected = [
             [1, 2, 3, 4],
             [5, 6, 7],
