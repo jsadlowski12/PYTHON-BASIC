@@ -7,7 +7,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(prog='magicgenerator',
                             description='A console utility for generating test data based on data schema',
-                            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                            formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('--path_to_save_files',
                         default=defaults['path_to_save_files'],
@@ -33,9 +33,11 @@ def create_parser() -> argparse.ArgumentParser:
                             "1) Path to a JSON file: e.g., './schema.json'\n"
                             "2) Inline JSON string: e.g., "
                             "'{\"name\": \"str:rand\", \"age\": \"int:rand(1, 100)\", \"type\": \"str:['client','partner']\"}'\n\n"
-                            "All values must follow the pattern type:instruction.\n"
+                            "All values must follow the pattern type:instruction.\n\n"
                             "Supported types: str, int, timestamp.\n"
-                            "Instructions include: rand, rand(from, to), list values, fixed value, or empty.\n")
+                            "Instructions include: rand, rand(from, to), list values, fixed value, or empty.\n\n"
+                            "The only exception is timestamp that doesn't support any values for the instruction part."
+                            " Proper usage for timestamp: (timestamp:)")
                         )
     parser.add_argument('--data_lines',
                         default=defaults['data_lines'],

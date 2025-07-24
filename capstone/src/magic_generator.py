@@ -5,7 +5,7 @@ from capstone.src.parser import create_parser
 from capstone.src.generators import generate_and_save_data
 
 def main():
-    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
     parser = create_parser()
     args = parser.parse_args()
