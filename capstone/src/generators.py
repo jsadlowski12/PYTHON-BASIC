@@ -34,11 +34,25 @@ def generate_file_name(file_name: str, file_prefix: str, index: int) -> str:
     if file_prefix == 'count':
         return f'{file_name}_{index}.json'
     elif file_prefix == 'random':
-        return f"{file_name}_{random.randint(100000, 99999999)}.json"
+        return f"{file_name}_{random.randint(100000, 9999999)}.json"
     elif file_prefix == 'uuid':
         return f"{file_name}_{uuid.uuid4()}.json"
     else:
         return f"{file_name}_{index}.json"
+
+def generate_unique_file_name(directory: str, file_name: str, file_prefix: str, index: int) -> str:
+    attempt = 0
+
+    while True:
+        filename = generate_file_name(file_name, file_prefix, index)
+        file_path = os.path.join(directory, filename)
+
+        if not os.path.exists(file_path):
+            return file_path
+
+        attempt += 1
+        if attempt % 10 == 0:
+            logging.warning(f"[Retry {attempt}] Still trying to generate a unique filename for index {index}")
 
 def generate_data_record(data_schema: dict[str, str]) -> dict:
     record = {}
@@ -64,12 +78,13 @@ def generate_and_save_data(args: dict) -> None:
         logging.info("Using single process for file generation")
         for i in range(1, args['files_count'] + 1):
             data = generate_data_lines(args['data_schema'], args['data_lines'])
-            filename = generate_file_name(
+            unique_filename = generate_unique_file_name(
+                args['path_to_save_files'],
                 args['file_name'],
                 args['file_prefix'],
                 i
             )
-            file_path = os.path.join(args['path_to_save_files'], filename)
+            file_path = os.path.join(args['path_to_save_files'], unique_filename)
             save_data_to_file(data, file_path)
         return
 
@@ -101,14 +116,19 @@ def generate_and_save_data(args: dict) -> None:
 # Multiprocessing section for generation
 
 def worker_generate_files(args: tuple) -> None:
-    (file_indices, path_to_save_files, file_name, file_prefix,
+    (file_indices, path_to_save_files, base_file_name, file_prefix,
      data_lines, data_schema, files_count) = args
 
     for i in file_indices:
         data = generate_data_lines(data_schema, data_lines)
 
-        filename = generate_file_name(file_name, file_prefix, i)
-        file_path = os.path.join(path_to_save_files, filename)
+        unique_filename = generate_unique_file_name(
+            path_to_save_files,
+            base_file_name,
+            file_prefix,
+            i
+        )
+        file_path = os.path.join(path_to_save_files, unique_filename)
 
         save_data_to_file(data, file_path)
 
