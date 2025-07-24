@@ -30,11 +30,9 @@ def generate_value(type_part: str, instruction_part: str) -> Any:
 
     return instruction_part if type_part == "str" else int(instruction_part)
 
-def generate_file_name(file_name: str, file_prefix: str, files_count: int, index: int) -> str:
-    if files_count == 1:
-        return f'{file_name}.json'
-    elif file_prefix == 'count':
-        return f'{file_name}_{index}'
+def generate_file_name(file_name: str, file_prefix: str, index: int) -> str:
+    if file_prefix == 'count':
+        return f'{file_name}_{index}.json'
     elif file_prefix == 'random':
         return f"{file_name}_{random.randint(1000, 9999)}.json"
     elif file_prefix == 'uuid':
@@ -69,7 +67,6 @@ def generate_and_save_data(args: dict) -> None:
             filename = generate_file_name(
                 args['file_name'],
                 args['file_prefix'],
-                args['files_count'],
                 i
             )
             file_path = os.path.join(args['path_to_save_files'], filename)
@@ -110,7 +107,7 @@ def worker_generate_files(args: tuple) -> None:
     for i in file_indices:
         data = generate_data_lines(data_schema, data_lines)
 
-        filename = generate_file_name(file_name, file_prefix, files_count, i)
+        filename = generate_file_name(file_name, file_prefix, i)
         file_path = os.path.join(path_to_save_files, filename)
 
         save_data_to_file(data, file_path)

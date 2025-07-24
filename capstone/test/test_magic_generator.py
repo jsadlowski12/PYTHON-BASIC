@@ -161,27 +161,27 @@ class TestJSONSchemaLoader:
 
 
 class TestGenerateFileName:
-    def test_generate_file_name_single_file(self):
-        result = generators.generate_file_name("test", "any", 1, 0)
-        assert result == "test.json"
-
     def test_count_prefix(self):
-        result = generators.generate_file_name("test", "count", 5, 2)
-        assert result == "test_2"
+        result = generators.generate_file_name("test", "count", 2)
+        assert result == "test_2.json"
 
     def test_random_prefix(self, monkeypatch):
         monkeypatch.setattr(random, 'randint', lambda x, y: 5678)
-        result = generators.generate_file_name("test", "random", 5, 2)
+        result = generators.generate_file_name("test", "random", 2)
         assert result == "test_5678.json"
 
     def test_uuid_prefix(self, monkeypatch):
         monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID("12345678-1234-5678-1234-567812345678"))
-        result = generators.generate_file_name("data", "uuid", 5, 3)
+        result = generators.generate_file_name("data", "uuid", 3)
         assert result == "data_12345678-1234-5678-1234-567812345678.json"
 
-    def test_default_case(self):
-        result = generators.generate_file_name("test", "unknown", 5, 3)
+    def test_default_case_unknown_prefix(self):
+        result = generators.generate_file_name("test", "unknown", 3)
         assert result == "test_3.json"
+
+    def test_no_prefix(self):
+        result = generators.generate_file_name("test", "", 1)
+        assert result == "test_1.json"
 
 
 class TestGenerateValue:
