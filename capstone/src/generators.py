@@ -34,7 +34,7 @@ def generate_file_name(file_name: str, file_prefix: str, index: int) -> str:
     if file_prefix == 'count':
         return f'{file_name}_{index}.json'
     elif file_prefix == 'random':
-        return f"{file_name}_{random.randint(1000, 9999)}.json"
+        return f"{file_name}_{random.randint(100000, 99999999)}.json"
     elif file_prefix == 'uuid':
         return f"{file_name}_{uuid.uuid4()}.json"
     else:
