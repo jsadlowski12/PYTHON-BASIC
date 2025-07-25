@@ -15,4 +15,10 @@ from typing import List, Any
 
 
 def delete_from_list(list_to_clean: List, item_to_delete: Any) -> List:
-    ...
+    i = 0
+    while i < len(list_to_clean):
+        if list_to_clean[i] == item_to_delete:
+            list_to_clean.pop(i)
+        else:
+            i += 1
+    return list_to_clean

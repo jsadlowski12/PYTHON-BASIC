@@ -20,5 +20,16 @@ from typing import Tuple
 
 
 def get_min_max(filename: str) -> Tuple[int, int]:
-    ...
+    min_number = 0
+    max_number = 0
 
+    with open("data.txt", 'r') as opened_file:
+        for line in opened_file:
+            number = int(line)
+
+            if number < min_number:
+                min_number = number
+            elif number > max_number:
+                max_number = number
+
+    return min_number, max_number
